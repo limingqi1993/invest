@@ -74,6 +74,7 @@ const App: React.FC = () => {
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [refreshingStockId, setRefreshingStockId] = useState<string | null>(null);
+  const [isRefreshingPortfolio, setIsRefreshingPortfolio] = useState(false);
 
   // Computed
   const t = translations[language];
@@ -101,6 +102,28 @@ const App: React.FC = () => {
     // Also record daily asset history on mount
     recordDailyAssetHistory();
   }, []);
+
+  // Sync Portfolio prices with Stock Watchlist prices if available
+  // This ensures that if a user refreshes a stock in the Watchlist, the Portfolio also updates automatically.
+  useEffect(() => {
+    if (stocks.length === 0 || portfolio.length === 0) return;
+
+    setPortfolio(prevPortfolio => {
+      let hasChanges = false;
+      const newPortfolio = prevPortfolio.map(item => {
+        // Find corresponding stock in watchlist
+        const stockData = stocks.find(s => s.name === item.name);
+        
+        // If stock data exists, has a valid price, and it's different/newer than portfolio price
+        if (stockData && stockData.price && stockData.price !== item.currentPrice) {
+          hasChanges = true;
+          return { ...item, currentPrice: stockData.price };
+        }
+        return item;
+      });
+      return hasChanges ? newPortfolio : prevPortfolio;
+    });
+  }, [stocks]); // Intentionally not including portfolio to avoid cycles, only update when stocks change
 
   const recordDailyAssetHistory = () => {
       const today = new Date().toISOString().split('T')[0];
@@ -390,11 +413,19 @@ const App: React.FC = () => {
               ));
           }
 
-          // 2. Add to Stock List (Watchlist) as a holding so industry chart works
+          // 2. Add/Update Stock List (Watchlist) to ensure Industry Distribution chart works
+          // We update even if it exists to refresh industry data
           setStocks(prev => {
-              const exists = prev.find(s => s.name === item.name || s.name.includes(item.name));
-              if (exists) return prev; // Already exists
+              const index = prev.findIndex(s => s.name === item.name || s.name.includes(item.name));
+              
+              if (index >= 0) {
+                 // Update existing entry with fresh data (including industry)
+                 const updated = [...prev];
+                 updated[index] = { ...updated[index], ...data, lastUpdated: Date.now() };
+                 return updated;
+              }
 
+              // Add new entry
               const newStock: StockData = {
                   id: Date.now().toString(),
                   name: item.name,
@@ -408,6 +439,49 @@ const App: React.FC = () => {
               return [newStock, ...prev];
           });
       });
+  };
+  
+  // Refresh Portfolio Prices (Called from TradeView)
+  const handleRefreshPortfolio = async () => {
+      if (portfolio.length === 0) return;
+      setIsRefreshingPortfolio(true);
+
+      try {
+          // Fetch data for all items
+          const promises = portfolio.map(async (item) => {
+              try {
+                  const data = await fetchStockAnalysis(item.name, language);
+                  return { id: item.id, name: item.name, price: data.price, data };
+              } catch (e) {
+                  return { id: item.id, name: item.name, price: null, data: null };
+              }
+          });
+          
+          const results = await Promise.all(promises);
+          
+          // Update Portfolio state
+          setPortfolio(prev => prev.map(item => {
+              const res = results.find(r => r.id === item.id);
+              if (res && res.price) {
+                  return { ...item, currentPrice: res.price };
+              }
+              return item;
+          }));
+
+          // Update Stocks state (if they match)
+          setStocks(prev => prev.map(stock => {
+              const res = results.find(r => r.name === stock.name);
+              if (res && res.data) {
+                  return { ...stock, ...res.data, lastUpdated: Date.now() };
+              }
+              return stock;
+          }));
+
+      } catch (error) {
+          console.error("Failed to refresh portfolio", error);
+      } finally {
+          setIsRefreshingPortfolio(false);
+      }
   };
 
   // Trade Handler (Buy/Sell)
@@ -429,7 +503,7 @@ const App: React.FC = () => {
                       ...item,
                       quantity: newQty,
                       costPrice: newAvgCost,
-                      // Optionally update current price to latest execution price as a fresh data point
+                      // Update price to latest execution price
                       currentPrice: price 
                   };
 
@@ -560,7 +634,7 @@ const App: React.FC = () => {
             />
         )}
 
-        {/* VIEW: Trade (New Portfolio Page) */}
+        {/* VIEW: Trade (Portfolio Page) */}
         {activeTab === 'trade' && (
             <TradeView 
                 portfolio={portfolio}
@@ -570,6 +644,8 @@ const App: React.FC = () => {
                 onUpdateCash={setCashBalance}
                 onAddPosition={handleAddPosition}
                 onTrade={handleTrade}
+                onRefresh={handleRefreshPortfolio}
+                isRefreshing={isRefreshingPortfolio}
                 t={t}
             />
         )}

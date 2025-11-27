@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { PortfolioItem, TimeRange, DistributionType, StockData, TradeType, AssetHistoryItem } from '../types';
 import { Translation } from '../utils/translations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { Plus, Edit2, Wallet, X, Search, PieChart as PieChartIcon, TrendingUp, Shield, ChevronDown, ChevronUp, ArrowRightLeft, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Plus, Edit2, Wallet, X, Search, PieChart as PieChartIcon, TrendingUp, Shield, ChevronDown, ChevronUp, ArrowRightLeft, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 import AddStockInput from './AddStockInput';
 
 interface TradeViewProps {
@@ -14,13 +14,15 @@ interface TradeViewProps {
   onUpdateCash: (amount: number) => void;
   onAddPosition: (item: Omit<PortfolioItem, 'id' | 'currentPrice' | 'currency'>) => void;
   onTrade: (id: string, type: TradeType, quantity: number, price: number) => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
   t: Translation;
 }
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EC4899', '#6366F1'];
 
 const TradeView: React.FC<TradeViewProps> = ({ 
-    portfolio, stocks, cashBalance, assetHistory, onUpdateCash, onAddPosition, onTrade, t 
+    portfolio, stocks, cashBalance, assetHistory, onUpdateCash, onAddPosition, onTrade, onRefresh, isRefreshing, t 
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [isEditingAssets, setIsEditingAssets] = useState(false);
@@ -177,6 +179,17 @@ const TradeView: React.FC<TradeViewProps> = ({
       <div className="bg-gradient-to-br from-indigo-900 to-blue-900 text-white p-6 rounded-b-[2rem] shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
           
+          {/* Refresh Button - Top Right */}
+          <div className="absolute top-4 right-4 z-20">
+              <button 
+                  onClick={onRefresh} 
+                  disabled={isRefreshing}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-95 disabled:opacity-50"
+              >
+                  <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+              </button>
+          </div>
+
           <div className="relative z-10 text-center mt-4 mb-2">
               <h2 className="text-xs font-medium text-blue-200 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
                   {t.total_assets}
@@ -281,7 +294,8 @@ const TradeView: React.FC<TradeViewProps> = ({
                                             stroke="#3B82F6" 
                                             strokeWidth={2}
                                             fillOpacity={1} 
-                                            fill="url(#colorTrend)" 
+                                            fill="url(#colorTrend)"
+                                            isAnimationActive={false} // Disable animation for instant response
                                         />
                                     </AreaChart>
                                 </ResponsiveContainer>
@@ -358,6 +372,7 @@ const TradeView: React.FC<TradeViewProps> = ({
                                         outerRadius={70} 
                                         paddingAngle={5} 
                                         dataKey="value"
+                                        isAnimationActive={false} // Disable animation for instant response
                                        >
                                            {distributionData.map((entry, index) => (
                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
