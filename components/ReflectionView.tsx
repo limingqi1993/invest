@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Note, ReflectionSummary } from '../types';
-import { Plus, CheckCircle, Circle, Trash2, StickyNote, CheckSquare, Sparkles, BrainCircuit, X, ChevronDown, ChevronUp, Clock, Edit2, Save, Download, FileText } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Trash2, StickyNote, CheckSquare, Sparkles, BrainCircuit, X, ChevronDown, ChevronUp, Clock, Edit2, Save, Download, FileText, Pin } from 'lucide-react';
 import { Translation } from '../utils/translations';
 
 interface ReflectionViewProps {
@@ -12,6 +12,8 @@ interface ReflectionViewProps {
   onDeleteNote: (id: string) => void;
   onToggleTask: (id: string) => void;
   onGenerateSummary: () => void;
+  onClearSummary: () => void;
+  onPinSummary: () => void;
   isGeneratingSummary: boolean;
   t: Translation;
 }
@@ -182,12 +184,11 @@ const TimelineNote: React.FC<{
 };
 
 const ReflectionView: React.FC<ReflectionViewProps> = ({ 
-    notes, summary, onAddNote, onUpdateNote, onDeleteNote, onToggleTask, onGenerateSummary, isGeneratingSummary, t 
+    notes, summary, onAddNote, onUpdateNote, onDeleteNote, onToggleTask, onGenerateSummary, onClearSummary, onPinSummary, isGeneratingSummary, t 
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [newContent, setNewContent] = useState('');
   const [newType, setNewType] = useState<'text' | 'task'>('text');
-  const [showSummary, setShowSummary] = useState(true);
 
   const handleAdd = () => {
     if (newContent.trim()) {
@@ -202,7 +203,7 @@ const ReflectionView: React.FC<ReflectionViewProps> = ({
       // Format the summary nicely
       const formattedContent = `${summary.content}\n\n💡 改进建议:\n${summary.keyPoints.map(p => `• ${p}`).join('\n')}`;
       onAddNote(formattedContent, 'ai_summary');
-      setShowSummary(false); // Close the card after saving
+      onClearSummary(); // Clear the summary card after saving
   };
 
   return (
@@ -234,15 +235,27 @@ const ReflectionView: React.FC<ReflectionViewProps> = ({
       </header>
 
       {/* Pinned Summary Card */}
-      {summary && showSummary && (
+      {summary && (
           <div className="mb-8 bg-white rounded-xl p-0 shadow-lg border border-indigo-100 overflow-hidden animate-in fade-in slide-in-from-top-4 relative group">
               <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-purple-600"></div>
-              <button 
-                onClick={() => setShowSummary(false)} 
-                className="absolute top-2 right-2 p-1 text-gray-300 hover:text-gray-500"
-              >
-                  <X size={16} />
-              </button>
+              
+              {/* Card Actions */}
+              <div className="absolute top-2 right-2 flex items-center gap-1">
+                  <button 
+                    onClick={onPinSummary} 
+                    className={`p-1.5 rounded-full transition-colors ${summary.isPinned ? 'text-indigo-600 bg-indigo-50' : 'text-gray-300 hover:text-gray-500 hover:bg-gray-50'}`}
+                    title="置顶"
+                  >
+                      <Pin size={14} className={summary.isPinned ? 'fill-current' : ''} />
+                  </button>
+                  <button 
+                    onClick={onClearSummary} 
+                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    title="关闭"
+                  >
+                      <X size={16} />
+                  </button>
+              </div>
               
               <div className="p-4 pl-5">
                   <div className="flex items-center gap-2 mb-3">

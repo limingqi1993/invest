@@ -106,6 +106,7 @@ export interface ReflectionSummary {
   content: string;
   keyPoints: string[];
   generatedAt: number;
+  isPinned?: boolean;
 }
 
 export interface FavoriteItem {

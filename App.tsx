@@ -48,7 +48,12 @@ const App: React.FC = () => {
 
   const [reflectionSummary, setReflectionSummary] = useState<ReflectionSummary | null>(() => loadState('alpha_reflection', null));
   useEffect(() => {
-      if(reflectionSummary) localStorage.setItem('alpha_reflection', JSON.stringify(reflectionSummary));
+      // If null, we remove item to ensure clean state
+      if(reflectionSummary) {
+          localStorage.setItem('alpha_reflection', JSON.stringify(reflectionSummary));
+      } else {
+          localStorage.removeItem('alpha_reflection');
+      }
   }, [reflectionSummary]);
 
   const [favorites, setFavorites] = useState<FavoriteItem[]>(() => loadState('alpha_favorites', []));
@@ -380,6 +385,14 @@ const App: React.FC = () => {
       }
   };
 
+  const handleClearSummary = () => {
+      setReflectionSummary(null);
+  };
+
+  const handlePinSummary = () => {
+      setReflectionSummary(prev => prev ? { ...prev, isPinned: !prev.isPinned } : null);
+  };
+
   const handleDeleteNote = (id: string) => {
     setNotes(prev => prev.filter(n => n.id !== id));
   };
@@ -629,6 +642,8 @@ const App: React.FC = () => {
                 onDeleteNote={handleDeleteNote}
                 onToggleTask={handleToggleTask}
                 onGenerateSummary={handleGenerateSummary}
+                onClearSummary={handleClearSummary}
+                onPinSummary={handlePinSummary}
                 isGeneratingSummary={isGeneratingSummary}
                 t={t}
             />

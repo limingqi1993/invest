@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, PlusCircle } from 'lucide-react';
 import { Translation } from '../utils/translations';
 
 // Expanded Mock database for suggestions
@@ -63,6 +63,8 @@ const STOCK_DB = [
   { name: '奈飞', code: 'NFLX', pinyin: 'nf' },
   { name: 'Coinbase', code: 'COIN', pinyin: 'coin' },
   { name: 'GameStop', code: 'GME', pinyin: 'gme' },
+  { name: '诺和诺德', code: 'NVO', pinyin: 'nhnd' }, // User requested
+  { name: '极智嘉', code: 'Geek+', pinyin: 'jzj' }, // User requested (Private company)
 ];
 
 export interface SuggestedStock {
@@ -115,7 +117,7 @@ const AddStockInput: React.FC<AddStockInputProps> = ({ onAdd, isLoading, t, plac
     });
 
     setSuggestions(sortedMatches);
-    setShowDropdown(sortedMatches.length > 0);
+    setShowDropdown(true); // Always show dropdown if value exists, for Custom Add
   }, [value]);
 
   // Click outside to close
@@ -136,6 +138,14 @@ const AddStockInput: React.FC<AddStockInputProps> = ({ onAdd, isLoading, t, plac
       setValue('');
       setShowDropdown(false);
     }
+  };
+
+  const handleCustomAdd = () => {
+      if (value.trim()) {
+          onAdd(value.trim());
+          setValue('');
+          setShowDropdown(false);
+      }
   };
 
   const handleSelect = (stock: typeof STOCK_DB[0]) => {
@@ -185,6 +195,18 @@ const AddStockInput: React.FC<AddStockInputProps> = ({ onAdd, isLoading, t, plac
       {/* Autocomplete Dropdown */}
       {showDropdown && (
         <ul className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200">
+            {/* Custom Add Option - Always available if user typed something */}
+            <li 
+                onClick={handleCustomAdd}
+                className="px-4 py-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-gray-50 text-blue-600 bg-blue-50/20"
+            >
+                <div className="flex items-center gap-2">
+                    <PlusCircle size={16} />
+                    <span className="font-medium text-sm">添加 "{value}"</span>
+                </div>
+                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">自定义</span>
+            </li>
+
             {suggestions.map((stock, idx) => (
                 <li 
                     key={idx}
