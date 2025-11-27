@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PortfolioItem, TimeRange, DistributionType, StockData, TradeType, AssetHistoryItem } from '../types';
 import { Translation } from '../utils/translations';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -20,6 +20,13 @@ interface TradeViewProps {
 }
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#10B981', '#EC4899', '#6366F1'];
+
+// Exchange rates for calculating total assets in CNY
+const EXCHANGE_RATES: Record<string, number> = {
+    CNY: 1,
+    USD: 7.25, // Approx
+    HKD: 0.93  // Approx
+};
 
 const TradeView: React.FC<TradeViewProps> = ({ 
     portfolio, stocks, cashBalance, assetHistory, onUpdateCash, onAddPosition, onTrade, onRefresh, isRefreshing, t 
@@ -45,17 +52,28 @@ const TradeView: React.FC<TradeViewProps> = ({
   const [quantity, setQuantity] = useState('');
   const [market, setMarket] = useState<'CN' | 'US' | 'HK'>('CN');
   
-  // Asset Form
+  // Asset Calculation
+  const getValueInCNY = (amount: number, currency: string) => {
+    return amount * (EXCHANGE_RATES[currency] || 1);
+  };
+
   const marketValue = useMemo(() => {
-    return portfolio.reduce((acc, item) => acc + (item.quantity * item.currentPrice), 0);
+    return portfolio.reduce((acc, item) => acc + getValueInCNY(item.quantity * item.currentPrice, item.currency), 0);
+  }, [portfolio]);
+
+  const totalCost = useMemo(() => {
+    return portfolio.reduce((acc, item) => acc + getValueInCNY(item.quantity * item.costPrice, item.currency), 0);
   }, [portfolio]);
   
   const totalAssets = cashBalance + marketValue;
-  const [assetInput, setAssetInput] = useState(totalAssets.toFixed(0));
+  const [assetInput, setAssetInput] = useState('');
 
-  const totalCost = useMemo(() => {
-      return portfolio.reduce((acc, item) => acc + (item.quantity * item.costPrice), 0);
-  }, [portfolio]);
+  // Initializing asset input with current CASH when modal opens
+  useEffect(() => {
+    if (isEditingAssets) {
+        setAssetInput(cashBalance.toFixed(2));
+    }
+  }, [isEditingAssets, cashBalance]);
 
   const totalPnL = marketValue - totalCost;
   const pnlPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
@@ -65,9 +83,9 @@ const TradeView: React.FC<TradeViewProps> = ({
   const distributionData = useMemo(() => {
       if (distType === 'market') {
           return [
-              { name: t.market_cn, value: portfolio.filter(p => p.market === 'CN').reduce((a, b) => a + (b.quantity * b.currentPrice), 0) },
-              { name: t.market_us, value: portfolio.filter(p => p.market === 'US').reduce((a, b) => a + (b.quantity * b.currentPrice), 0) },
-              { name: t.market_hk, value: portfolio.filter(p => p.market === 'HK').reduce((a, b) => a + (b.quantity * b.currentPrice), 0) },
+              { name: t.market_cn, value: portfolio.filter(p => p.market === 'CN').reduce((a, b) => a + getValueInCNY(b.quantity * b.currentPrice, b.currency), 0) },
+              { name: t.market_us, value: portfolio.filter(p => p.market === 'US').reduce((a, b) => a + getValueInCNY(b.quantity * b.currentPrice, b.currency), 0) },
+              { name: t.market_hk, value: portfolio.filter(p => p.market === 'HK').reduce((a, b) => a + getValueInCNY(b.quantity * b.currentPrice, b.currency), 0) },
           ].filter(d => d.value > 0);
       } 
       else if (distType === 'industry') {
@@ -75,7 +93,7 @@ const TradeView: React.FC<TradeViewProps> = ({
           portfolio.forEach(item => {
               const stockInfo = stocks.find(s => s.name === item.name || s.name.includes(item.name) || item.name.includes(s.name));
               const industry = stockInfo?.industry?.name || t.unknown_industry;
-              const value = item.quantity * item.currentPrice;
+              const value = getValueInCNY(item.quantity * item.currentPrice, item.currency);
               groups[industry] = (groups[industry] || 0) + value;
           });
           return Object.entries(groups).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
@@ -148,12 +166,12 @@ const TradeView: React.FC<TradeViewProps> = ({
 
   const handleSaveAssets = () => {
       if (assetInput) {
-          // User sets TOTAL NET WORTH.
-          // Cash = EnteredTotal - CurrentEquity
-          const newTotal = parseFloat(assetInput);
-          const newCash = newTotal - marketValue;
-          onUpdateCash(newCash);
-          setIsEditingAssets(false);
+          // User updates available cash directly
+          const newCash = parseFloat(assetInput);
+          if (!isNaN(newCash)) {
+             onUpdateCash(newCash);
+             setIsEditingAssets(false);
+          }
       }
   };
 
@@ -193,9 +211,6 @@ const TradeView: React.FC<TradeViewProps> = ({
           <div className="relative z-10 text-center mt-4 mb-2">
               <h2 className="text-xs font-medium text-blue-200 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
                   {t.total_assets}
-                  <button onClick={() => setIsEditingAssets(true)} className="p-1 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
-                       <Edit2 size={10} />
-                  </button>
               </h2>
               <div className="text-4xl font-bold mb-4">¥ {totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
               
@@ -204,8 +219,10 @@ const TradeView: React.FC<TradeViewProps> = ({
                        <div className="text-[10px] text-blue-300 mb-1">{t.market_value}</div>
                        <div className="font-bold">¥ {marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
                   </div>
-                  <div>
-                       <div className="text-[10px] text-blue-300 mb-1">{t.cash_available}</div>
+                  <div className="relative group">
+                       <div className="text-[10px] text-blue-300 mb-1 flex items-center gap-1 cursor-pointer" onClick={() => setIsEditingAssets(true)}>
+                           {t.cash_available} <Edit2 size={10} className="text-blue-300" />
+                       </div>
                        <div className="font-bold text-gray-300">
                            ¥ {cashBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                        </div>
@@ -438,6 +455,7 @@ const TradeView: React.FC<TradeViewProps> = ({
                           const itemCostVal = item.quantity * item.costPrice;
                           const itemPnL = itemMarketVal - itemCostVal;
                           const itemPnLPercent = (itemPnL / itemCostVal) * 100;
+                          const symbol = item.currency === 'USD' ? '$' : item.currency === 'HKD' ? 'HK$' : '¥';
 
                           return (
                               <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors">
@@ -453,7 +471,7 @@ const TradeView: React.FC<TradeViewProps> = ({
                                       </div>
                                       <div className="flex flex-col items-end gap-1">
                                           <div className="text-right">
-                                              <div className="font-bold text-gray-900">¥ {itemMarketVal.toLocaleString()}</div>
+                                              <div className="font-bold text-gray-900">{symbol} {itemMarketVal.toLocaleString()}</div>
                                               <div className="text-[10px] text-gray-400">{t.market_value_short}</div>
                                           </div>
                                           <button 
@@ -539,7 +557,7 @@ const TradeView: React.FC<TradeViewProps> = ({
                       </div>
                       <div className="flex justify-between text-xs px-1">
                           <span className="text-gray-400">{t.trade_amount}</span>
-                          <span className="font-bold text-gray-800">¥ {((parseFloat(tradePrice) || 0) * (parseFloat(tradeQty) || 0)).toLocaleString()}</span>
+                          <span className="font-bold text-gray-800">{((parseFloat(tradePrice) || 0) * (parseFloat(tradeQty) || 0)).toLocaleString()}</span>
                       </div>
                   </div>
 
@@ -559,12 +577,12 @@ const TradeView: React.FC<TradeViewProps> = ({
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl animate-in zoom-in-95">
                   <h3 className="text-lg font-bold mb-4">{t.edit_assets}</h3>
-                  <p className="text-xs text-gray-400 mb-2">请输入您的当前总资产，系统将自动计算可用现金。</p>
+                  <p className="text-xs text-gray-400 mb-2">{t.edit_cash_desc}</p>
                   <input 
                       type="number"
                       value={assetInput}
                       onChange={e => setAssetInput(e.target.value)}
-                      placeholder={t.input_assets_placeholder}
+                      placeholder={t.input_cash_placeholder}
                       className="w-full bg-gray-50 p-3 rounded-xl mb-4 text-lg font-bold"
                   />
                   <div className="flex gap-3">
