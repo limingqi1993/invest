@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from './components/Navigation';
 import StockCard from './components/StockCard';
@@ -12,22 +13,56 @@ import { fetchStockAnalysis, fetchMarketSentiment, fetchTopicAnalysis, analyzeTr
 import { translations } from './utils/translations';
 import { User } from 'lucide-react';
 
+// Helper for local storage
+const loadState = <T,>(key: string, defaultVal: T): T => {
+    try {
+        const saved = localStorage.getItem(key);
+        return saved ? JSON.parse(saved) : defaultVal;
+    } catch(e) {
+        return defaultVal;
+    }
+};
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('watchlist');
-  const [language, setLanguage] = useState<Language>('zh');
   
-  // Data States
-  const [stocks, setStocks] = useState<StockData[]>([]);
-  const [marketData, setMarketData] = useState<MarketData | null>(null);
-  const [topics, setTopics] = useState<TopicData[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [reflectionSummary, setReflectionSummary] = useState<ReflectionSummary | null>(null);
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  // Persisted Language
+  const [language, setLanguage] = useState<Language>(() => loadState('alpha_lang', 'zh'));
+  useEffect(() => localStorage.setItem('alpha_lang', JSON.stringify(language)), [language]);
+
+  // Data States (Persisted)
+  const [stocks, setStocks] = useState<StockData[]>(() => loadState('alpha_stocks', []));
+  useEffect(() => localStorage.setItem('alpha_stocks', JSON.stringify(stocks)), [stocks]);
+
+  const [marketData, setMarketData] = useState<MarketData | null>(() => loadState('alpha_market', null));
+  // Market data is also cached, but updated on mount
+  useEffect(() => {
+     if(marketData) localStorage.setItem('alpha_market', JSON.stringify(marketData));
+  }, [marketData]);
+
+  const [topics, setTopics] = useState<TopicData[]>(() => loadState('alpha_topics', []));
+  useEffect(() => localStorage.setItem('alpha_topics', JSON.stringify(topics)), [topics]);
+
+  const [notes, setNotes] = useState<Note[]>(() => loadState('alpha_notes', []));
+  useEffect(() => localStorage.setItem('alpha_notes', JSON.stringify(notes)), [notes]);
+
+  const [reflectionSummary, setReflectionSummary] = useState<ReflectionSummary | null>(() => loadState('alpha_reflection', null));
+  useEffect(() => {
+      if(reflectionSummary) localStorage.setItem('alpha_reflection', JSON.stringify(reflectionSummary));
+  }, [reflectionSummary]);
+
+  const [favorites, setFavorites] = useState<FavoriteItem[]>(() => loadState('alpha_favorites', []));
+  useEffect(() => localStorage.setItem('alpha_favorites', JSON.stringify(favorites)), [favorites]);
   
-  // Portfolio State
-  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
-  const [cashBalance, setCashBalance] = useState<number>(100000); 
-  const [assetHistory, setAssetHistory] = useState<AssetHistoryItem[]>([]); // Real Asset History
+  // Portfolio State (Persisted)
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>(() => loadState('alpha_portfolio', []));
+  useEffect(() => localStorage.setItem('alpha_portfolio', JSON.stringify(portfolio)), [portfolio]);
+
+  const [cashBalance, setCashBalance] = useState<number>(() => loadState('alpha_cash', 100000));
+  useEffect(() => localStorage.setItem('alpha_cash', JSON.stringify(cashBalance)), [cashBalance]);
+
+  const [assetHistory, setAssetHistory] = useState<AssetHistoryItem[]>(() => loadState('alpha_history', []));
+  useEffect(() => localStorage.setItem('alpha_history', JSON.stringify(assetHistory)), [assetHistory]);
 
   // UI States
   const [topicViewMode, setTopicViewMode] = useState<TopicViewMode>('list');
@@ -56,10 +91,34 @@ const App: React.FC = () => {
       return b.lastUpdated - a.lastUpdated;
   });
 
-  // Initial Load (Market Data)
+  // Initial Load (Market Data) - Refresh on mount if data is old (> 4 hours) or missing
   useEffect(() => {
-    loadMarketData();
+    const shouldRefresh = !marketData || (Date.now() - marketData.lastUpdated > 1000 * 60 * 60 * 4);
+    if (shouldRefresh) {
+        loadMarketData();
+    }
+    
+    // Also record daily asset history on mount
+    recordDailyAssetHistory();
   }, []);
+
+  const recordDailyAssetHistory = () => {
+      const today = new Date().toISOString().split('T')[0];
+      // Calculate current total
+      const currentMarketValue = portfolio.reduce((acc, item) => acc + (item.quantity * item.currentPrice), 0);
+      const totalAssets = cashBalance + currentMarketValue;
+
+      setAssetHistory(prev => {
+          const hasToday = prev.find(p => p.date === today);
+          if (hasToday) return prev; // Already recorded today
+          
+          return [...prev, {
+              date: today,
+              timestamp: Date.now(),
+              totalValue: totalAssets
+          }];
+      });
+  };
 
   const loadMarketData = async () => {
     setLoadingMarket(true);
@@ -69,13 +128,15 @@ const App: React.FC = () => {
       setMarketData(data);
     } catch (e) {
       console.error("Market data fetch failed", e);
-      // Fallback data to remove spinner in case of API error
-      setMarketData({
-          sentimentScore: 5,
-          limitUpStocks: [],
-          indices: [],
-          lastUpdated: Date.now()
-      });
+      // Keep existing data if available, otherwise fallback
+      if (!marketData) {
+          setMarketData({
+              sentimentScore: 5,
+              limitUpStocks: [],
+              indices: [],
+              lastUpdated: Date.now()
+          });
+      }
     } finally {
       setLoadingMarket(false);
     }
@@ -385,15 +446,6 @@ const App: React.FC = () => {
           }
           return item;
       }).filter(item => item.quantity > 0)); // Remove empty positions
-  };
-
-  // Just updating fields without logic (legacy edit) - now mostly replaced by Trade
-  const handleUpdatePosition = (id: string, updates: Partial<PortfolioItem>) => {
-      setPortfolio(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-  };
-
-  const handleDeletePosition = (id: string) => {
-      setPortfolio(prev => prev.filter(p => p.id !== id));
   };
 
   return (

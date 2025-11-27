@@ -63,11 +63,11 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
 
     // Allow swiping left (negative) and right (positive)
     if (diff > 0) {
-        // Swiping Right (Delete)
-        setTouchOffset(Math.min(diff, DELETE_BTN_WIDTH + 20));
+        // Swiping Right (Delete) - Limit drag
+        setTouchOffset(Math.min(diff, DELETE_BTN_WIDTH + 30));
     } else {
-        // Swiping Left (Categories)
-        setTouchOffset(Math.max(diff, -(CATEGORY_MENU_WIDTH + 20)));
+        // Swiping Left (Categories) - Limit drag
+        setTouchOffset(Math.max(diff, -(CATEGORY_MENU_WIDTH + 30)));
     }
   };
 
@@ -149,27 +149,35 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
 
   return (
     <div className="relative mb-4">
-        {/* Background Action Layers Container (Restricted to card shape) */}
-        {/* Only render background actions if card is NOT expanded to prevent visual issues */}
+        {/* Background Action Layers Container */}
         {!data.isExpanded && (
             <div className="absolute inset-0 rounded-xl overflow-hidden z-0">
-                {/* Left Background (Delete) */}
+                {/* 
+                   Background Layer Logic:
+                   To prevent "moving background" artifacts or gaps when over-swiping,
+                   we use wider containers (50% or more) for the background colors.
+                   This ensures that even if you drag further than the button width, the color persists.
+                */}
+                
+                {/* Left Background (Delete) - Visible when swiping Right */}
                 <div 
-                    className="absolute inset-y-0 left-0 bg-red-500 flex items-center justify-start z-10"
-                    style={{ width: `${DELETE_BTN_WIDTH}px` }}
+                    className="absolute inset-y-0 left-0 bg-red-500 z-10"
+                    style={{ width: '60%' }} 
                 >
-                    <button onClick={handleDeleteClick} className="w-full h-full flex flex-col items-center justify-center text-white font-bold gap-1">
-                        <Trash2 size={20} />
-                        <span className="text-[10px]">删除</span>
-                    </button>
+                    <div className="h-full flex items-center justify-center" style={{ width: DELETE_BTN_WIDTH }}>
+                        <button onClick={handleDeleteClick} className="w-full h-full flex flex-col items-center justify-center text-white font-bold gap-1">
+                            <Trash2 size={20} />
+                            <span className="text-[10px]">删除</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* Right Background (Categories) */}
+                {/* Right Background (Categories) - Visible when swiping Left */}
                 <div 
-                    className="absolute inset-y-0 right-0 bg-gray-50 flex items-center justify-end z-10"
-                    style={{ width: `${CATEGORY_MENU_WIDTH}px` }}
+                    className="absolute inset-y-0 right-0 bg-gray-50 z-10 flex justify-end"
+                    style={{ width: '90%' }}
                 >
-                    <div className="flex h-full w-full">
+                    <div className="h-full flex" style={{ width: CATEGORY_MENU_WIDTH }}>
                         <button onClick={(e) => handleCategorySelect(e, 'holding')} className="flex-1 h-full bg-red-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-red-100">
                             <div className={`p-1.5 rounded-full ${data.category === 'holding' ? 'bg-red-500 text-white' : 'text-red-500 bg-red-100'}`}>
                                 <Check size={16} />
