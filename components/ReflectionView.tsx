@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Note, ReflectionSummary } from '../types';
-import { Plus, CheckCircle, Circle, Trash2, StickyNote, CheckSquare, Sparkles, BrainCircuit, X, ChevronDown, ChevronUp, Clock, Edit2, Save, Download, FileText, Pin } from 'lucide-react';
+import { Plus, CheckCircle, Circle, Trash2, StickyNote, CheckSquare, Sparkles, BrainCircuit, X, ChevronDown, ChevronUp, Clock, Edit2, Save, Download, FileText, Pin, AlignLeft } from 'lucide-react';
 import { Translation } from '../utils/translations';
 
 interface ReflectionViewProps {
@@ -98,14 +98,18 @@ const TimelineNote: React.FC<{
                                             value={editContent}
                                             onChange={(e) => setEditContent(e.target.value)}
                                             className="w-full bg-white border border-blue-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
+                                            maxLength={5000}
                                         />
-                                        <div className="flex gap-2 mt-2 justify-end">
-                                            <button onClick={() => setIsEditing(false)} className="text-xs px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-gray-600">
-                                                {t.cancel}
-                                            </button>
-                                            <button onClick={handleSave} className="text-xs px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-white flex items-center gap-1">
-                                                <Save size={12}/> {t.save}
-                                            </button>
+                                        <div className="flex justify-between items-center mt-2">
+                                            <span className="text-[10px] text-gray-400">{editContent.length}/5000</span>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setIsEditing(false)} className="text-xs px-3 py-1 bg-gray-100 rounded hover:bg-gray-200 text-gray-600">
+                                                    {t.cancel}
+                                                </button>
+                                                <button onClick={handleSave} className="text-xs px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-white flex items-center gap-1">
+                                                    <Save size={12}/> {t.save}
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ) : (
@@ -299,28 +303,37 @@ const ReflectionView: React.FC<ReflectionViewProps> = ({
       {isAdding && (
         <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100 mb-8 animate-in slide-in-from-top-2 relative z-10">
             <textarea 
-                className="w-full bg-gray-50 p-3 rounded-lg border-none focus:ring-2 focus:ring-blue-500 text-gray-700 mb-3 resize-none text-sm"
-                rows={3}
+                className="w-full bg-gray-50 p-3 rounded-lg border-none focus:ring-2 focus:ring-blue-500 text-gray-700 mb-2 resize-none text-sm placeholder:text-gray-300"
+                rows={5}
                 placeholder={t.note_placeholder}
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
                 autoFocus
+                maxLength={5000}
             />
-            <div className="flex justify-between items-center">
-                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                    <button 
-                        onClick={() => setNewType('text')}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${newType === 'text' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}
-                    >
-                        <StickyNote size={12}/> {t.note}
-                    </button>
-                     <button 
-                        onClick={() => setNewType('task')}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${newType === 'task' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500'}`}
-                    >
-                         <CheckSquare size={12}/> {t.task}
-                    </button>
+            {/* Character Counter & Actions */}
+            <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                <div className="flex items-center gap-3">
+                     <span className={`text-[10px] font-mono ${newContent.length > 4000 ? 'text-red-400' : 'text-gray-300'}`}>
+                        {newContent.length}/5000
+                     </span>
+                     <div className="h-4 w-px bg-gray-200"></div>
+                     <div className="flex gap-1">
+                        <button 
+                            onClick={() => setNewType('text')}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${newType === 'text' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <AlignLeft size={12}/> {t.note}
+                        </button>
+                         <button 
+                            onClick={() => setNewType('task')}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-colors ${newType === 'task' ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                             <CheckSquare size={12}/> {t.task}
+                        </button>
+                     </div>
                 </div>
+                
                 <button 
                     onClick={handleAdd}
                     className="bg-gray-900 text-white px-5 py-1.5 rounded-lg text-xs font-bold shadow-md hover:bg-black transition-colors"
