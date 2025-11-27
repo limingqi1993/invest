@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { StockData, MarketData, StockCategory } from '../types';
 import { RefreshCw, TrendingUp, TrendingDown, Globe, Shield, Activity, Calculator, Trash2, Check } from 'lucide-react';
@@ -50,11 +51,13 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
 
   // Touch Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Disable swipe if the card is expanded
+    if (data.isExpanded) return;
     setTouchStart(e.targetTouches[0].clientX);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null) return;
+    if (touchStart === null || data.isExpanded) return;
     const currentTouch = e.targetTouches[0].clientX;
     const diff = currentTouch - touchStart;
 
@@ -69,6 +72,8 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
   };
 
   const handleTouchEnd = () => {
+    if (data.isExpanded) return;
+    
     if (touchOffset > (DELETE_BTN_WIDTH / 2)) {
         setTouchOffset(DELETE_BTN_WIDTH); // Snap open Delete
     } else if (touchOffset < -(CATEGORY_MENU_WIDTH / 4)) {
@@ -145,54 +150,57 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
   return (
     <div className="relative mb-4">
         {/* Background Action Layers Container (Restricted to card shape) */}
-        <div className="absolute inset-0 rounded-xl overflow-hidden z-0">
-            {/* Left Background (Delete) */}
-            <div 
-                className="absolute inset-y-0 left-0 bg-red-500 flex items-center justify-start z-10"
-                style={{ width: `${DELETE_BTN_WIDTH}px` }}
-            >
-                 <button onClick={handleDeleteClick} className="w-full h-full flex flex-col items-center justify-center text-white font-bold gap-1">
-                     <Trash2 size={20} />
-                     <span className="text-[10px]">删除</span>
-                 </button>
-            </div>
+        {/* Only render background actions if card is NOT expanded to prevent visual issues */}
+        {!data.isExpanded && (
+            <div className="absolute inset-0 rounded-xl overflow-hidden z-0">
+                {/* Left Background (Delete) */}
+                <div 
+                    className="absolute inset-y-0 left-0 bg-red-500 flex items-center justify-start z-10"
+                    style={{ width: `${DELETE_BTN_WIDTH}px` }}
+                >
+                    <button onClick={handleDeleteClick} className="w-full h-full flex flex-col items-center justify-center text-white font-bold gap-1">
+                        <Trash2 size={20} />
+                        <span className="text-[10px]">删除</span>
+                    </button>
+                </div>
 
-            {/* Right Background (Categories) */}
-            <div 
-                className="absolute inset-y-0 right-0 bg-gray-50 flex items-center justify-end z-10"
-                style={{ width: `${CATEGORY_MENU_WIDTH}px` }}
-            >
-                 <div className="flex h-full w-full">
-                    <button onClick={(e) => handleCategorySelect(e, 'holding')} className="flex-1 h-full bg-red-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-red-100">
-                        <div className={`p-1.5 rounded-full ${data.category === 'holding' ? 'bg-red-500 text-white' : 'text-red-500 bg-red-100'}`}>
-                            <Check size={16} />
-                        </div>
-                        <span className="text-[10px] font-bold text-red-700">持仓</span>
-                    </button>
-                    <button onClick={(e) => handleCategorySelect(e, 'strong')} className="flex-1 h-full bg-orange-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-orange-100">
-                         <div className={`p-1.5 rounded-full ${data.category === 'strong' ? 'bg-orange-500 text-white' : 'text-orange-500 bg-orange-100'}`}>
-                            {data.category === 'strong' && <Check size={16} />}
-                            {data.category !== 'strong' && <div className="w-4 h-4 rounded-full border-2 border-orange-500"></div>}
-                        </div>
-                        <span className="text-[10px] font-bold text-orange-700">强关</span>
-                    </button>
-                    <button onClick={(e) => handleCategorySelect(e, 'medium')} className="flex-1 h-full bg-blue-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-blue-100">
-                         <div className={`p-1.5 rounded-full ${data.category === 'medium' ? 'bg-blue-500 text-white' : 'text-blue-500 bg-blue-100'}`}>
-                             {data.category === 'medium' && <Check size={16} />}
-                             {data.category !== 'medium' && <div className="w-4 h-4 rounded-full border-2 border-blue-500"></div>}
-                        </div>
-                        <span className="text-[10px] font-bold text-blue-700">中关</span>
-                    </button>
-                    <button onClick={(e) => handleCategorySelect(e, 'normal')} className="flex-1 h-full bg-gray-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-gray-200">
-                         <div className={`p-1.5 rounded-full ${data.category === 'normal' ? 'bg-gray-500 text-white' : 'text-gray-500 bg-gray-200'}`}>
-                             {data.category === 'normal' && <Check size={16} />}
-                             {data.category !== 'normal' && <div className="w-4 h-4 rounded-full border-2 border-gray-400"></div>}
-                        </div>
-                        <span className="text-[10px] font-bold text-gray-600">普通</span>
-                    </button>
-                 </div>
+                {/* Right Background (Categories) */}
+                <div 
+                    className="absolute inset-y-0 right-0 bg-gray-50 flex items-center justify-end z-10"
+                    style={{ width: `${CATEGORY_MENU_WIDTH}px` }}
+                >
+                    <div className="flex h-full w-full">
+                        <button onClick={(e) => handleCategorySelect(e, 'holding')} className="flex-1 h-full bg-red-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-red-100">
+                            <div className={`p-1.5 rounded-full ${data.category === 'holding' ? 'bg-red-500 text-white' : 'text-red-500 bg-red-100'}`}>
+                                <Check size={16} />
+                            </div>
+                            <span className="text-[10px] font-bold text-red-700">持仓</span>
+                        </button>
+                        <button onClick={(e) => handleCategorySelect(e, 'strong')} className="flex-1 h-full bg-orange-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-orange-100">
+                            <div className={`p-1.5 rounded-full ${data.category === 'strong' ? 'bg-orange-500 text-white' : 'text-orange-500 bg-orange-100'}`}>
+                                {data.category === 'strong' && <Check size={16} />}
+                                {data.category !== 'strong' && <div className="w-4 h-4 rounded-full border-2 border-orange-500"></div>}
+                            </div>
+                            <span className="text-[10px] font-bold text-orange-700">强关</span>
+                        </button>
+                        <button onClick={(e) => handleCategorySelect(e, 'medium')} className="flex-1 h-full bg-blue-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-blue-100">
+                            <div className={`p-1.5 rounded-full ${data.category === 'medium' ? 'bg-blue-500 text-white' : 'text-blue-500 bg-blue-100'}`}>
+                                {data.category === 'medium' && <Check size={16} />}
+                                {data.category !== 'medium' && <div className="w-4 h-4 rounded-full border-2 border-blue-500"></div>}
+                            </div>
+                            <span className="text-[10px] font-bold text-blue-700">中关</span>
+                        </button>
+                        <button onClick={(e) => handleCategorySelect(e, 'normal')} className="flex-1 h-full bg-gray-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-gray-200">
+                            <div className={`p-1.5 rounded-full ${data.category === 'normal' ? 'bg-gray-500 text-white' : 'text-gray-500 bg-gray-200'}`}>
+                                {data.category === 'normal' && <Check size={16} />}
+                                {data.category !== 'normal' && <div className="w-4 h-4 rounded-full border-2 border-gray-400"></div>}
+                            </div>
+                            <span className="text-[10px] font-bold text-gray-600">普通</span>
+                        </button>
+                    </div>
+                </div>
             </div>
-        </div>
+        )}
 
         {/* Foreground Content Card */}
         <div 
