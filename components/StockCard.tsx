@@ -1,7 +1,6 @@
-
 import React, { useState, useRef } from 'react';
 import { StockData, MarketData, StockCategory } from '../types';
-import { RefreshCw, TrendingUp, TrendingDown, Globe, Shield, Activity, Calculator, Trash2, Check } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Globe, Shield, Activity, Calculator, Trash2, Check, MoreHorizontal, X, Tag } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Translation } from '../utils/translations';
 
@@ -19,16 +18,33 @@ interface StockCardProps {
 
 const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onToggleExpand, onDelete, onUpdateCategory, isRefreshing, t }) => {
   const [showSimulate, setShowSimulate] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   
-  // Swipe Logic
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchOffset, setTouchOffset] = useState(0);
-  const cardRef = useRef<HTMLDivElement>(null);
+  // Long Press Logic
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
 
-  // Constants for Swipe
-  const CATEGORY_BTN_WIDTH = 56; // px
-  const CATEGORY_MENU_WIDTH = CATEGORY_BTN_WIDTH * 4; // 224px
-  const DELETE_BTN_WIDTH = 90; // Increased width to ensure text fits
+  const startPress = () => {
+    isLongPress.current = false;
+    timerRef.current = setTimeout(() => {
+      isLongPress.current = true;
+      if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback
+      setShowMenu(true);
+    }, 600); // 600ms threshold for long press
+  };
+
+  const cancelPress = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // If it was a long press, do not toggle expand
+    if (isLongPress.current) return;
+    onToggleExpand(data.id);
+  };
 
   // Loading State (Skeleton)
   if (data.isLoading) {
@@ -49,54 +65,16 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
       );
   }
 
-  // Touch Handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Disable swipe if the card is expanded
-    if (data.isExpanded) return;
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStart === null || data.isExpanded) return;
-    const currentTouch = e.targetTouches[0].clientX;
-    const diff = currentTouch - touchStart;
-
-    // Allow swiping left (negative) and right (positive)
-    if (diff > 0) {
-        // Swiping Right (Delete) - Limit drag
-        setTouchOffset(Math.min(diff, DELETE_BTN_WIDTH + 50));
-    } else {
-        // Swiping Left (Categories) - Limit drag
-        setTouchOffset(Math.max(diff, -(CATEGORY_MENU_WIDTH + 50)));
-    }
-  };
-
-  const handleTouchEnd = () => {
-    if (data.isExpanded) return;
-    
-    if (touchOffset > (DELETE_BTN_WIDTH / 2)) {
-        setTouchOffset(DELETE_BTN_WIDTH); // Snap open Delete
-    } else if (touchOffset < -(CATEGORY_MENU_WIDTH / 4)) {
-        setTouchOffset(-CATEGORY_MENU_WIDTH); // Snap open Categories
-    } else {
-        setTouchOffset(0); // Close
-    }
-    setTouchStart(null);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent) => {
-      e.stopPropagation();
+  const handleDelete = () => {
       if (confirm('确认删除该自选股吗？')) {
         onDelete(data.id);
-      } else {
-        setTouchOffset(0);
       }
+      setShowMenu(false);
   };
 
-  const handleCategorySelect = (e: React.MouseEvent, category: StockCategory) => {
-      e.stopPropagation();
+  const handleCategorySelect = (category: StockCategory) => {
       onUpdateCategory(data.id, category);
-      setTouchOffset(0); // Close after selection
+      setShowMenu(false);
   };
 
   // Simulation Logic
@@ -148,257 +126,259 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
   const categoryLabel = getCategoryLabel();
 
   return (
-    <div className="relative mb-4">
-        {/* Background Action Layers Container */}
-        {!data.isExpanded && (
-            <div className="absolute inset-0 rounded-xl overflow-hidden z-0">
-                {/* 
-                   Background Fixed Logic:
-                   Use w-full for the background colors so they don't 'shift' or show gaps when over-swiped.
-                   Content is then absolutely positioned to the respective edges.
-                */}
+    <>
+        {/* Context Menu Modal (Triggered by Long Press) */}
+        {showMenu && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                {/* Backdrop */}
+                <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowMenu(false)}></div>
                 
-                {/* Left Background (Delete) - Visible when swiping Right */}
-                <div className="absolute inset-y-0 left-0 w-full bg-red-500 z-10 flex justify-start">
-                    <div className="h-full flex items-center justify-center bg-red-500" style={{ width: DELETE_BTN_WIDTH }}>
-                        <button onClick={handleDeleteClick} className="w-full h-full flex flex-col items-center justify-center text-white font-bold gap-1 active:bg-red-600 transition-colors">
-                            <Trash2 size={22} />
-                            <span className="text-[11px] whitespace-nowrap">删除</span>
+                {/* Menu Card */}
+                <div className="bg-white rounded-2xl w-full max-w-xs shadow-2xl relative z-10 p-5 animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-900">{data.name}</h3>
+                            <p className="text-xs text-gray-400">管理选项</p>
+                        </div>
+                        <button onClick={() => setShowMenu(false)} className="p-1 bg-gray-100 rounded-full text-gray-500">
+                            <X size={18} />
                         </button>
                     </div>
-                </div>
 
-                {/* Right Background (Categories) - Visible when swiping Left */}
-                <div className="absolute inset-y-0 right-0 w-full bg-gray-50 z-10 flex justify-end">
-                    <div className="h-full flex" style={{ width: CATEGORY_MENU_WIDTH }}>
-                        <button onClick={(e) => handleCategorySelect(e, 'holding')} className="flex-1 h-full bg-red-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-red-100">
-                            <div className={`p-1.5 rounded-full ${data.category === 'holding' ? 'bg-red-500 text-white' : 'text-red-500 bg-red-100'}`}>
-                                <Check size={16} />
+                    <div className="space-y-4">
+                        {/* Category Selection */}
+                        <div>
+                            <label className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1">
+                                <Tag size={12} /> {t.set_category}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => handleCategorySelect('holding')} className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${data.category === 'holding' ? 'bg-red-50 border-red-200 text-red-600 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                    {data.category === 'holding' && <Check size={14} />} {t.cat_holding}
+                                </button>
+                                <button onClick={() => handleCategorySelect('strong')} className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${data.category === 'strong' ? 'bg-orange-50 border-orange-200 text-orange-600 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                    {data.category === 'strong' && <Check size={14} />} {t.cat_strong}
+                                </button>
+                                <button onClick={() => handleCategorySelect('medium')} className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${data.category === 'medium' ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                    {data.category === 'medium' && <Check size={14} />} {t.cat_medium}
+                                </button>
+                                <button onClick={() => handleCategorySelect('normal')} className={`p-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${data.category === 'normal' ? 'bg-gray-100 border-gray-200 text-gray-600 shadow-sm' : 'bg-white border-gray-100 text-gray-600 hover:bg-gray-50'}`}>
+                                    {data.category === 'normal' && <Check size={14} />} {t.cat_normal}
+                                </button>
                             </div>
-                            <span className="text-[10px] font-bold text-red-700">持仓</span>
-                        </button>
-                        <button onClick={(e) => handleCategorySelect(e, 'strong')} className="flex-1 h-full bg-orange-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-orange-100">
-                            <div className={`p-1.5 rounded-full ${data.category === 'strong' ? 'bg-orange-500 text-white' : 'text-orange-500 bg-orange-100'}`}>
-                                {data.category === 'strong' && <Check size={16} />}
-                                {data.category !== 'strong' && <div className="w-4 h-4 rounded-full border-2 border-orange-500"></div>}
-                            </div>
-                            <span className="text-[10px] font-bold text-orange-700">强关</span>
-                        </button>
-                        <button onClick={(e) => handleCategorySelect(e, 'medium')} className="flex-1 h-full bg-blue-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-blue-100">
-                            <div className={`p-1.5 rounded-full ${data.category === 'medium' ? 'bg-blue-500 text-white' : 'text-blue-500 bg-blue-100'}`}>
-                                {data.category === 'medium' && <Check size={16} />}
-                                {data.category !== 'medium' && <div className="w-4 h-4 rounded-full border-2 border-blue-500"></div>}
-                            </div>
-                            <span className="text-[10px] font-bold text-blue-700">中关</span>
-                        </button>
-                        <button onClick={(e) => handleCategorySelect(e, 'normal')} className="flex-1 h-full bg-gray-50 flex flex-col items-center justify-center gap-1 border-l border-white active:bg-gray-200">
-                            <div className={`p-1.5 rounded-full ${data.category === 'normal' ? 'bg-gray-500 text-white' : 'text-gray-500 bg-gray-200'}`}>
-                                {data.category === 'normal' && <Check size={16} />}
-                                {data.category !== 'normal' && <div className="w-4 h-4 rounded-full border-2 border-gray-400"></div>}
-                            </div>
-                            <span className="text-[10px] font-bold text-gray-600">普通</span>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="h-px bg-gray-100"></div>
+
+                        {/* Delete Button */}
+                        <button 
+                            onClick={handleDelete}
+                            className="w-full bg-red-50 text-red-600 py-3 rounded-xl font-bold flex items-center justify-center gap-2 active:bg-red-100 transition-colors"
+                        >
+                            <Trash2 size={18} /> 删除自选
                         </button>
                     </div>
                 </div>
             </div>
         )}
 
-        {/* Foreground Content Card */}
+        {/* Main Card */}
         <div 
-            ref={cardRef}
-            className={`rounded-xl shadow-md overflow-hidden border transition-transform duration-300 relative z-20 ${getCategoryStyles()}`}
-            style={{ transform: `translateX(${touchOffset}px)` }}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            className={`relative mb-4 rounded-xl shadow-md overflow-hidden border transition-transform duration-200 ${data.isExpanded ? 'scale-[1.01] z-10' : 'active:scale-[0.98]'} ${getCategoryStyles()}`}
+            // Add Mouse/Touch handlers for long press
+            onMouseDown={startPress}
+            onMouseUp={cancelPress}
+            onMouseLeave={cancelPress}
+            onTouchStart={startPress}
+            onTouchEnd={cancelPress}
+            onTouchMove={cancelPress} // Moving finger cancels long press
         >
-        {/* Header / Summary View */}
-        <div 
-            className="p-4 flex items-center justify-between cursor-pointer active:opacity-95 bg-inherit"
-            onClick={() => {
-                if (Math.abs(touchOffset) > 10) setTouchOffset(0); 
-                else onToggleExpand(data.id);
-            }}
-        >
-            <div className="flex items-center gap-3">
-                <div className="flex flex-col items-center gap-1">
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${data.market === 'CN' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                        {data.market === 'CN' ? t.market_cn || 'CN' : data.market === 'US' ? t.market_us || 'US' : data.market}
-                    </span>
-                    {categoryLabel && (
-                        <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${categoryLabel.color}`}>
-                            {categoryLabel.text}
+            {/* Header / Summary View */}
+            <div 
+                className="p-4 flex items-center justify-between cursor-pointer bg-inherit select-none"
+                onClick={handleCardClick}
+            >
+                <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-center gap-1">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${data.market === 'CN' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {data.market === 'CN' ? t.market_cn || 'CN' : data.market === 'US' ? t.market_us || 'US' : data.market}
                         </span>
+                        {categoryLabel && (
+                            <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded ${categoryLabel.color}`}>
+                                {categoryLabel.text}
+                            </span>
+                        )}
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                            {data.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 line-clamp-1">{data.industry.name} • {t.industry_sentiment} {data.industry.sentimentScore}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className={`h-2 w-2 rounded-full ${data.industry.sentimentScore >= 7 ? 'bg-red-500 animate-pulse' : data.industry.sentimentScore <= 3 ? 'bg-blue-400' : 'bg-yellow-400'}`}></div>
+                    {/* Optional 3-dot menu icon to hint at more options if user doesn't know about long press */}
+                    {/* <MoreHorizontal size={16} className="text-gray-300" /> */}
+                </div>
+            </div>
+
+            {/* Expanded Details */}
+            {data.isExpanded && (
+                <div className="px-4 pb-4 border-t border-gray-100/50 bg-white/50">
+                    
+                    {/* Action Bar */}
+                    <div className="flex justify-end gap-3 py-3">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); onRefresh(data.id, data.name); }}
+                            disabled={isRefreshing}
+                            className={`text-xs flex items-center gap-1 text-blue-600 ${isRefreshing ? 'opacity-50' : ''}`}
+                        >
+                            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} /> {t.refresh_data}
+                        </button>
+                    </div>
+
+                    {/* Timestamp */}
+                    <div className="px-1 text-[10px] text-gray-400 text-right mb-2">
+                        {t.data_updated_at}: {new Date(data.lastUpdated).toLocaleString()}
+                    </div>
+
+                    {/* Key Information Grid */}
+                    <div className="grid grid-cols-1 gap-4 mb-4">
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Activity size={12}/> {t.latest_news}</h4>
+                            <p className="text-sm text-gray-700 leading-relaxed">{data.companyNews}</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.main_business}</h4>
+                                <p className="text-sm text-gray-700">{data.mainBusiness}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.new_business}</h4>
+                                <p className="text-sm text-gray-700">{data.newBusinessProgress}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-purple-500">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.management_voice}</h4>
+                            <p className="text-sm text-gray-800 italic">"{data.managementVoice}"</p>
+                        </div>
+                    </div>
+
+                    {/* Charts Section */}
+                    <div className="space-y-4 mb-4">
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingUp size={12}/> {t.gross_margin}</h4>
+                            <div className="h-32 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={data.grossMarginTrend}>
+                                        <defs>
+                                            <linearGradient id="colorGm" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis hide domain={['auto', 'auto']} />
+                                        <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
+                                        <Area type="monotone" dataKey="value" stroke="#8884d8" fillOpacity={1} fill="url(#colorGm)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingDown size={12}/> {t.market_share}</h4>
+                            <div className="h-32 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={data.marketShareTrend}>
+                                        <defs>
+                                            <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
+                                                <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis hide domain={['auto', 'auto']} />
+                                        <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
+                                        <Area type="monotone" dataKey="value" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMs)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="grid grid-cols-2 gap-3 mb-6">
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Shield size={12}/> {t.core_barrier}</h4>
+                            <p className="text-sm text-gray-700">{data.coreBarrier}</p>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg shadow-sm">
+                            <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Globe size={12}/> {t.business_ratio}</h4>
+                            <div className="flex flex-col gap-2 mt-2">
+                                <div className="flex justify-between text-xs"><span>{t.domestic}</span><span>{data.businessRatio.domestic}%</span></div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.domestic}%` }}></div>
+                                </div>
+                                <div className="flex justify-between text-xs"><span>{t.overseas}</span><span>{data.businessRatio.overseas}%</span></div>
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.overseas}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Simulation Button */}
+                    <div className="flex justify-center">
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); setShowSimulate(!showSimulate); }}
+                            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95 font-medium text-sm"
+                        >
+                            <Calculator size={16} />
+                            {t.simulate}
+                        </button>
+                    </div>
+
+                    {/* Simulation Modal/Area */}
+                    {showSimulate && (
+                        <div className="mt-4 bg-indigo-50 border border-indigo-100 p-4 rounded-xl animate-in fade-in slide-in-from-top-4 duration-300">
+                            <h3 className="text-center font-bold text-indigo-900 mb-3">{t.ai_advice}</h3>
+                            
+                            <div className="flex justify-around mb-4 text-center">
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-800">{simResult.marketScore.toFixed(1)}</div>
+                                    <div className="text-xs text-gray-500">{t.market_score}</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-bold text-gray-800">{simResult.industryScore.toFixed(1)}</div>
+                                    <div className="text-xs text-gray-500">{t.industry_score}</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-3 rounded-lg mb-3 text-center border border-indigo-100 shadow-sm">
+                                <span className="text-sm font-bold text-indigo-700">{simResult.recommendation}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="text-center">
+                                    <div className="text-xs text-gray-500 mb-1">{t.entry_pos}</div>
+                                    <div className="text-xl font-bold text-green-600">{simResult.entryPos}%</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-xs text-gray-500 mb-1">{t.add_pos}</div>
+                                    <div className="text-xl font-bold text-blue-600">{simResult.addPos}%</div>
+                                </div>
+                            </div>
+                            <p className="text-center text-[10px] text-gray-400 mt-3">{t.disclaimer}</p>
+                        </div>
                     )}
                 </div>
-                <div>
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                        {data.name}
-                    </h3>
-                    <p className="text-xs text-gray-500 line-clamp-1">{data.industry.name} • {t.industry_sentiment} {data.industry.sentimentScore}</p>
-                </div>
-            </div>
-            <div className="flex items-center gap-3">
-                <div className={`h-2 w-2 rounded-full ${data.industry.sentimentScore >= 7 ? 'bg-red-500 animate-pulse' : data.industry.sentimentScore <= 3 ? 'bg-blue-400' : 'bg-yellow-400'}`}></div>
-            </div>
+            )}
         </div>
-
-        {/* Expanded Details */}
-        {data.isExpanded && (
-            <div className="px-4 pb-4 border-t border-gray-100/50 bg-white/50">
-                
-                {/* Action Bar */}
-                <div className="flex justify-end gap-3 py-3">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onRefresh(data.id, data.name); }}
-                        disabled={isRefreshing}
-                        className={`text-xs flex items-center gap-1 text-blue-600 ${isRefreshing ? 'opacity-50' : ''}`}
-                    >
-                        <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} /> {t.refresh_data}
-                    </button>
-                </div>
-
-                {/* Timestamp */}
-                <div className="px-1 text-[10px] text-gray-400 text-right mb-2">
-                    {t.data_updated_at}: {new Date(data.lastUpdated).toLocaleString()}
-                </div>
-
-                {/* Key Information Grid */}
-                <div className="grid grid-cols-1 gap-4 mb-4">
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Activity size={12}/> {t.latest_news}</h4>
-                        <p className="text-sm text-gray-700 leading-relaxed">{data.companyNews}</p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.main_business}</h4>
-                            <p className="text-sm text-gray-700">{data.mainBusiness}</p>
-                        </div>
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.new_business}</h4>
-                            <p className="text-sm text-gray-700">{data.newBusinessProgress}</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-purple-500">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.management_voice}</h4>
-                        <p className="text-sm text-gray-800 italic">"{data.managementVoice}"</p>
-                    </div>
-                </div>
-
-                {/* Charts Section */}
-                <div className="space-y-4 mb-4">
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingUp size={12}/> {t.gross_margin}</h4>
-                        <div className="h-32 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={data.grossMarginTrend}>
-                                    <defs>
-                                        <linearGradient id="colorGm" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis hide domain={['auto', 'auto']} />
-                                    <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
-                                    <Area type="monotone" dataKey="value" stroke="#8884d8" fillOpacity={1} fill="url(#colorGm)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingDown size={12}/> {t.market_share}</h4>
-                        <div className="h-32 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={data.marketShareTrend}>
-                                    <defs>
-                                        <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis hide domain={['auto', 'auto']} />
-                                    <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
-                                    <Area type="monotone" dataKey="value" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMs)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Additional Info */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Shield size={12}/> {t.core_barrier}</h4>
-                        <p className="text-sm text-gray-700">{data.coreBarrier}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                        <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Globe size={12}/> {t.business_ratio}</h4>
-                        <div className="flex flex-col gap-2 mt-2">
-                            <div className="flex justify-between text-xs"><span>{t.domestic}</span><span>{data.businessRatio.domestic}%</span></div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.domestic}%` }}></div>
-                            </div>
-                            <div className="flex justify-between text-xs"><span>{t.overseas}</span><span>{data.businessRatio.overseas}%</span></div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.overseas}%` }}></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Simulation Button */}
-                <div className="flex justify-center">
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); setShowSimulate(!showSimulate); }}
-                        className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all active:scale-95 font-medium text-sm"
-                    >
-                        <Calculator size={16} />
-                        {t.simulate}
-                    </button>
-                </div>
-
-                {/* Simulation Modal/Area */}
-                {showSimulate && (
-                    <div className="mt-4 bg-indigo-50 border border-indigo-100 p-4 rounded-xl animate-in fade-in slide-in-from-top-4 duration-300">
-                        <h3 className="text-center font-bold text-indigo-900 mb-3">{t.ai_advice}</h3>
-                        
-                        <div className="flex justify-around mb-4 text-center">
-                            <div>
-                                <div className="text-2xl font-bold text-gray-800">{simResult.marketScore.toFixed(1)}</div>
-                                <div className="text-xs text-gray-500">{t.market_score}</div>
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold text-gray-800">{simResult.industryScore.toFixed(1)}</div>
-                                <div className="text-xs text-gray-500">{t.industry_score}</div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white p-3 rounded-lg mb-3 text-center border border-indigo-100 shadow-sm">
-                            <span className="text-sm font-bold text-indigo-700">{simResult.recommendation}</span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="text-center">
-                                <div className="text-xs text-gray-500 mb-1">{t.entry_pos}</div>
-                                <div className="text-xl font-bold text-green-600">{simResult.entryPos}%</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-xs text-gray-500 mb-1">{t.add_pos}</div>
-                                <div className="text-xl font-bold text-blue-600">{simResult.addPos}%</div>
-                            </div>
-                        </div>
-                        <p className="text-center text-[10px] text-gray-400 mt-3">{t.disclaimer}</p>
-                    </div>
-                )}
-            </div>
-        )}
-        </div>
-    </div>
+    </>
   );
 };
 
