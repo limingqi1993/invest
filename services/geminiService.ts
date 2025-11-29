@@ -29,6 +29,9 @@ const parseJSON = (text: string) => {
   }
 };
 
+// Set a long timeout for search-heavy operations (5 minutes)
+const REQUEST_OPTIONS = { timeout: 300000 };
+
 export const fetchStockAnalysis = async (stockName: string, lang: Language): Promise<Omit<StockData, 'id' | 'name' | 'lastUpdated' | 'category'>> => {
   try {
     const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
@@ -42,7 +45,7 @@ export const fetchStockAnalysis = async (stockName: string, lang: Language): Pro
       config: {
         tools: [{ googleSearch: {} }] 
       }
-    });
+    }, REQUEST_OPTIONS);
     
     const text = response.text;
     const data = parseJSON(text);
@@ -65,7 +68,7 @@ export const fetchMarketSentiment = async (lang: Language): Promise<MarketData> 
       config: {
         tools: [{ googleSearch: {} }] 
       }
-    });
+    }, REQUEST_OPTIONS);
 
     const text = response.text;
     const data = parseJSON(text);
@@ -106,7 +109,7 @@ export const fetchTopicAnalysis = async (keyword: string, lang: Language): Promi
       config: {
         tools: [{ googleSearch: {} }] 
       }
-    });
+    }, REQUEST_OPTIONS);
 
     const text = response.text;
     const data = parseJSON(text);

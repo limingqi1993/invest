@@ -130,6 +130,15 @@ export const translations = {
     fair_value: "合理",
     billion_unit: "亿",
     
+    // Capital Data (NEW)
+    market_capital: "市场资金全景",
+    northbound_inflow: "北向资金(5日)",
+    margin_balance: "融资余额",
+    trading_volume: "成交量",
+    account_growth: "新增开户",
+    etf_inflow: "ETF净申购",
+    capital_trend: "半年资金趋势",
+    
     // Simulation
     ai_advice: "AI 仓位建议",
     market_score: "大盘评分",
@@ -318,6 +327,15 @@ export const translations = {
     overvalued: "Overvalued",
     fair_value: "Fair",
     billion_unit: "B",
+    
+    // Capital Data (NEW)
+    market_capital: "Capital Overview",
+    northbound_inflow: "Northbound(5d)",
+    margin_balance: "Margin Bal.",
+    trading_volume: "Volume",
+    account_growth: "Acct Growth",
+    etf_inflow: "ETF Inflow",
+    capital_trend: "6M Trend",
     
     // Simulation
     ai_advice: "AI Position Sizing",

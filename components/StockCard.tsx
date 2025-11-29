@@ -81,7 +81,7 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
   // Simulation Logic
   const getSimulationResult = () => {
     const marketScore = marketData?.sentimentScore || 5;
-    const industryScore = data.industry.sentimentScore;
+    const industryScore = data.industry?.sentimentScore || 5;
     let recommendation = "";
     let entryPos = 0;
     let addPos = 0;
@@ -151,13 +151,13 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
       }
 
       return {
-          value: iv.toFixed(2),
+          value: iv.toLocaleString(undefined, {maximumFractionDigits: 2}),
           currency: data.financials.currency,
-          netAssets: na.toFixed(2),
-          netProfit: np.toFixed(2),
+          netAssets: na.toLocaleString(undefined, {maximumFractionDigits: 2}),
+          netProfit: np.toLocaleString(undefined, {maximumFractionDigits: 2}),
           status: valuationStatus,
           statusColor,
-          marketCap: mktCap ? mktCap.toFixed(2) : 'N/A',
+          marketCap: mktCap ? mktCap.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A',
           fiscalYear
       };
   };
@@ -252,13 +252,11 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
                         <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                             {data.name}
                         </h3>
-                        <p className="text-xs text-gray-500 line-clamp-1">{data.industry.name} • {t.industry_sentiment} {data.industry.sentimentScore}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">{data.industry?.name || '---'} • {t.industry_sentiment} {data.industry?.sentimentScore || 5}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className={`h-2 w-2 rounded-full ${data.industry.sentimentScore >= 7 ? 'bg-red-500 animate-pulse' : data.industry.sentimentScore <= 3 ? 'bg-blue-400' : 'bg-yellow-400'}`}></div>
-                    {/* Optional 3-dot menu icon to hint at more options if user doesn't know about long press */}
-                    {/* <MoreHorizontal size={16} className="text-gray-300" /> */}
+                    <div className={`h-2 w-2 rounded-full ${(data.industry?.sentimentScore || 5) >= 7 ? 'bg-red-500 animate-pulse' : (data.industry?.sentimentScore || 5) <= 3 ? 'bg-blue-400' : 'bg-yellow-400'}`}></div>
                 </div>
             </div>
 
@@ -318,65 +316,81 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
                     <div className="grid grid-cols-1 gap-4 mb-4">
                         <div className="bg-white p-3 rounded-lg shadow-sm">
                             <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Activity size={12}/> {t.latest_news}</h4>
-                            <p className="text-sm text-gray-700 leading-relaxed">{data.companyNews}</p>
+                            <p className="text-sm text-gray-700 leading-relaxed">{data.companyNews || '---'}</p>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-white p-3 rounded-lg shadow-sm">
                                 <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.main_business}</h4>
-                                <p className="text-sm text-gray-700">{data.mainBusiness}</p>
+                                <p className="text-sm text-gray-700">{data.mainBusiness || '---'}</p>
                             </div>
                             <div className="bg-white p-3 rounded-lg shadow-sm">
                                 <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.new_business}</h4>
-                                <p className="text-sm text-gray-700">{data.newBusinessProgress}</p>
+                                <p className="text-sm text-gray-700">{data.newBusinessProgress || '---'}</p>
                             </div>
                         </div>
 
                         <div className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-purple-500">
                             <h4 className="text-xs font-semibold text-gray-400 mb-1">{t.management_voice}</h4>
-                            <p className="text-sm text-gray-800 italic">"{data.managementVoice}"</p>
+                            <p className="text-sm text-gray-800 italic">"{data.managementVoice || '---'}"</p>
                         </div>
                     </div>
 
                     {/* Charts Section */}
                     <div className="space-y-4 mb-4">
+                        {/* Gross Margin Chart */}
                         <div className="bg-white p-3 rounded-lg shadow-sm">
                             <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingUp size={12}/> {t.gross_margin}</h4>
                             <div className="h-32 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={data.grossMarginTrend}>
-                                        <defs>
-                                            <linearGradient id="colorGm" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                                        <YAxis hide domain={['auto', 'auto']} />
-                                        <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
-                                        <Area type="monotone" dataKey="value" stroke="#8884d8" fillOpacity={1} fill="url(#colorGm)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                {data.grossMarginTrend && data.grossMarginTrend.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={data.grossMarginTrend}>
+                                            <defs>
+                                                <linearGradient id="colorGm" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+                                                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
+                                            <YAxis hide domain={['auto', 'auto']} />
+                                            <Tooltip 
+                                                contentStyle={{borderRadius: '8px', fontSize: '12px'}} 
+                                                formatter={(val: any) => `${val}%`}
+                                            />
+                                            <Area type="monotone" dataKey="value" stroke="#8884d8" fillOpacity={1} fill="url(#colorGm)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-xs text-gray-300">暂无历史数据</div>
+                                )}
                             </div>
                         </div>
 
+                        {/* Market Share Chart */}
                         <div className="bg-white p-3 rounded-lg shadow-sm">
                             <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1"><TrendingDown size={12}/> {t.market_share}</h4>
                             <div className="h-32 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={data.marketShareTrend}>
-                                        <defs>
-                                            <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                                            </linearGradient>
-                                        </defs>
-                                        <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
-                                        <YAxis hide domain={['auto', 'auto']} />
-                                        <Tooltip contentStyle={{borderRadius: '8px', fontSize: '12px'}} />
-                                        <Area type="monotone" dataKey="value" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMs)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
+                                {data.marketShareTrend && data.marketShareTrend.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={data.marketShareTrend}>
+                                            <defs>
+                                                <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
+                                                    <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.8}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />
+                                            <YAxis hide domain={['auto', 'auto']} />
+                                            <Tooltip 
+                                                contentStyle={{borderRadius: '8px', fontSize: '12px'}}
+                                                formatter={(val: any) => `${val}%`}
+                                            />
+                                            <Area type="monotone" dataKey="value" stroke="#82ca9d" fillOpacity={1} fill="url(#colorMs)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div className="h-full flex items-center justify-center text-xs text-gray-300">暂无历史数据</div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -385,21 +399,24 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
                     <div className="grid grid-cols-2 gap-3 mb-6">
                         <div className="bg-white p-3 rounded-lg shadow-sm">
                             <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Shield size={12}/> {t.core_barrier}</h4>
-                            <p className="text-sm text-gray-700">{data.coreBarrier}</p>
+                            <p className="text-sm text-gray-700">{data.coreBarrier || '---'}</p>
                         </div>
-                        <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Globe size={12}/> {t.business_ratio}</h4>
-                            <div className="flex flex-col gap-2 mt-2">
-                                <div className="flex justify-between text-xs"><span>{t.domestic}</span><span>{data.businessRatio.domestic}%</span></div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                    <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.domestic}%` }}></div>
-                                </div>
-                                <div className="flex justify-between text-xs"><span>{t.overseas}</span><span>{data.businessRatio.overseas}%</span></div>
-                                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                    <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.overseas}%` }}></div>
+                        
+                        {data.businessRatio && (
+                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                <h4 className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1"><Globe size={12}/> {t.business_ratio}</h4>
+                                <div className="flex flex-col gap-2 mt-2">
+                                    <div className="flex justify-between text-xs"><span>{t.domestic}</span><span>{data.businessRatio.domestic || 0}%</span></div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.domestic || 0}%` }}></div>
+                                    </div>
+                                    <div className="flex justify-between text-xs"><span>{t.overseas}</span><span>{data.businessRatio.overseas || 0}%</span></div>
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                        <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${data.businessRatio.overseas || 0}%` }}></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Simulation Button */}

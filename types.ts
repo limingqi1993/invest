@@ -84,6 +84,27 @@ export interface MarketOpportunity {
   stocks: RecommendedStock[];
 }
 
+export interface CapitalTrendPoint {
+  date: string;
+  volume: number;        // Market Trading Volume (Yi)
+  northbound: number;    // Northbound Net Inflow (Yi)
+  marginBalance: number; // Margin Balance (Yi)
+  etfInflow: number;     // ETF Net Inflow (Yi)
+  accountGrowth: number; // New Account Growth Rate (%)
+}
+
+export interface MarketCapitalData {
+  summary: string;
+  latest: {
+    northbound5DayNetInflow: number; // Sum of last 5 days
+    marginBalance: number;           // Total Margin Balance
+    volume: number;                  // Latest Daily Volume
+    accountGrowth: number;           // MoM Growth %
+    etfScale: number;                // Recent ETF Net Subscription
+  };
+  trend: CapitalTrendPoint[];
+}
+
 export interface MarketIndex {
   name: string;
   value: number;
@@ -94,7 +115,8 @@ export interface MarketIndex {
 export interface MarketData {
   sentimentScore: number;
   limitUpStocks: LimitUpStock[];
-  marketOpportunities: MarketOpportunity[]; // New: AI selection logic
+  marketOpportunities: MarketOpportunity[]; 
+  capitalData?: MarketCapitalData; // New: Capital Flow Data
   indices: MarketIndex[];
   lastUpdated: number;
 }
