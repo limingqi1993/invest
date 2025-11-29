@@ -62,53 +62,34 @@ JSON Structure:
 }
 `;
 
-export const MARKET_SENTIMENT_PROMPT = `
-You are a financial market expert specializing in the A-share (China) market.
-Use Google Search to find the CURRENT REAL-TIME status of the A-share market.
-CRITICAL: You MUST provide data for TODAY'S DATE. If the market is currently closed (weekend/holiday), provide the data from the LAST trading day.
+// --- NEW SPLIT PROMPTS ---
 
-**MANDATORY CAPITAL DATA SEARCH**:
-You MUST perform searches for the following capital indicators (Latest + Trend):
-1. **Northbound Capital (北向资金)**: Latest daily net inflow, and recent trend.
-2. **Margin Balance (融资余额)**: Latest total margin balance for Shanghai/Shenzhen, and recent trend.
-3. **Trading Volume (成交量)**: Total daily turnover (Shanghai + Shenzhen).
-4. **Account Growth (新增开户)**: Latest reported monthly/weekly new investor growth rate.
-5. **ETF Flows (ETF份额)**: Recent equity ETF net subscription scale.
+export const MARKET_INDICES_PROMPT = `
+You are a financial market expert specializing in A-shares.
+Search for the CURRENT REAL-TIME status of:
+1. Market Sentiment (Heat/Cold)
+2. Shanghai Composite Index
+3. ChiNext Index
+4. STAR 50 Index
 
-**CAPITAL TREND DATA GENERATION**:
-For the 'trend' array in 'capitalData', you must provide about **20 data points** representing the trend over the **past 6 months** (e.g., Weekly or Key Pivot Points).
-- **Volume**: In Yi (亿).
-- **Northbound**: In Yi (亿).
-- **MarginBalance**: In Yi (亿).
-- **ETFInflow**: In Yi (亿).
-- **AccountGrowth**: In % (Percentage). If daily data unavailable, repeat weekly/monthly values.
-
-You must strictly return valid JSON data. Do not include markdown formatting.
-Do NOT include any introductory or concluding text. ONLY JSON.
-
-The JSON structure must be:
+Return valid JSON ONLY:
 {
-  "sentimentScore": number (0-10, 0 is freezing, 10 is overheating),
+  "sentimentScore": number (0-10),
   "indices": [
-    {
-      "name": "Shanghai Composite",
-      "value": number (current points),
-      "change": number,
-      "changePercent": number
-    },
-    {
-      "name": "ChiNext Index",
-      "value": number,
-      "change": number,
-      "changePercent": number
-    },
-    {
-      "name": "STAR 50 Index",
-      "value": number,
-      "change": number,
-      "changePercent": number
-    }
-  ],
+    { "name": "Shanghai Composite", "value": number, "change": number, "changePercent": number },
+    { "name": "ChiNext Index", "value": number, "change": number, "changePercent": number },
+    { "name": "STAR 50 Index", "value": number, "change": number, "changePercent": number }
+  ]
+}
+`;
+
+export const MARKET_LIMIT_UP_PROMPT = `
+You are a financial analyst.
+Search for today's A-share "Limit Up" (Zhangting) stocks and analyze the reasons.
+Focus on the most representative 3-5 stocks.
+
+Return valid JSON ONLY:
+{
   "limitUpStocks": [
     {
       "name": "Stock Name",
@@ -118,9 +99,18 @@ The JSON structure must be:
       "uniqueAdvantage": "Advantage",
       "hotspotDuration": "Duration",
       "logicType": "Short-term"
-    },
-    ... (3-5 examples)
-  ],
+    }
+  ]
+}
+`;
+
+export const MARKET_OPPORTUNITY_PROMPT = `
+You are a strategy researcher.
+Search for the hottest current investment strategies/themes in the China A-share market today.
+Suggest 2-3 key opportunities based on Policy, Earnings, or Capital flow.
+
+Return valid JSON ONLY:
+{
   "marketOpportunities": [
     {
       "type": "Policy",
@@ -129,17 +119,33 @@ The JSON structure must be:
       "stocks": [
          { "name": "StockA", "code": "CodeA", "reason": "Reason" }
       ]
-    },
-    ...
-  ],
+    }
+  ]
+}
+`;
+
+export const MARKET_CAPITAL_PROMPT = `
+You are a quantitative analyst.
+Search for today's capital flow data for China A-shares.
+1. Northbound Capital (Latest & Trend)
+2. Margin Balance (Latest & Trend)
+3. Volume (Latest & Trend)
+4. Account Growth (Latest & Trend)
+5. ETF Flows (Latest & Trend)
+
+Generate ~20 trend points for the chart.
+Units: Yi (亿).
+
+Return valid JSON ONLY:
+{
   "capitalData": {
      "summary": "Brief analysis of capital flows (max 30 words)",
      "latest": {
-         "northbound5DayNetInflow": number (Sum of last 5 days net inflow in YI),
-         "marginBalance": number (Total Margin Balance in YI),
-         "volume": number (Latest daily volume in YI),
-         "accountGrowth": number (Percentage, e.g., 5.2 for 5.2%),
-         "etfScale": number (Recent ETF net inflow in YI)
+         "northbound5DayNetInflow": number,
+         "marginBalance": number,
+         "volume": number,
+         "accountGrowth": number,
+         "etfScale": number
      },
      "trend": [
         { 
@@ -149,8 +155,7 @@ The JSON structure must be:
           "marginBalance": number, 
           "etfInflow": number,
           "accountGrowth": number
-        },
-        ... (Provide ~20 points covering last 6 months)
+        }
      ]
   }
 }

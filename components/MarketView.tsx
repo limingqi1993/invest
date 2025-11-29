@@ -1,13 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
 import { MarketData } from '../types';
-import { TrendingUp, Flame, Snowflake, Clock, PlusCircle, ChevronDown, ChevronUp, Zap, Timer, Target, Sparkles, TrendingDown, Briefcase, Award, BarChart4, ArrowUpRight, ArrowDownRight, Users, Coins, Layers, Activity } from 'lucide-react';
+import { TrendingUp, Flame, Snowflake, Clock, PlusCircle, ChevronDown, ChevronUp, Zap, Timer, Target, Sparkles, TrendingDown, Briefcase, Award, BarChart4, ArrowUpRight, ArrowDownRight, Users, Coins, Layers, Activity, RefreshCw } from 'lucide-react';
 import { Translation } from '../utils/translations';
 import { ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid, Area, ReferenceLine, Cell, AreaChart } from 'recharts';
 
 interface MarketViewProps {
   data: MarketData;
-  isLoading: boolean;
-  onRefresh: () => void;
+  loadingStates: {
+      indices: boolean;
+      opportunities: boolean;
+      limitUp: boolean;
+      capital: boolean;
+  };
+  onRefreshIndices: () => void;
+  onRefreshOpportunities: () => void;
+  onRefreshLimitUp: () => void;
+  onRefreshCapital: () => void;
   onAddStock: (name: string) => void;
   t: Translation;
 }
@@ -15,8 +24,7 @@ interface MarketViewProps {
 type ChartTab = 'liquidity' | 'smart_money' | 'sentiment';
 
 const MarketView: React.FC<MarketViewProps> = ({ 
-    data, isLoading, onRefresh, onAddStock, 
-    t 
+    data, loadingStates, onRefreshIndices, onRefreshOpportunities, onRefreshLimitUp, onRefreshCapital, onAddStock, t 
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [expandedStockCode, setExpandedStockCode] = useState<string | null>(null);
@@ -101,52 +109,75 @@ const MarketView: React.FC<MarketViewProps> = ({
                 <span>{currentTime.toLocaleString()}</span>
             </div>
         </div>
-        <button onClick={onRefresh} disabled={isLoading} className="text-sm text-blue-600">
-            {isLoading ? t.refreshing : t.refresh}
-        </button>
       </header>
 
-      {/* Indices Dashboard */}
-      {data.indices && data.indices.length > 0 && (
-          <div className="grid grid-cols-3 gap-2">
-            {data.indices.map((index, idx) => (
-                <div key={idx} className="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
-                    <div className="text-xs text-gray-500 mb-1 truncate">{mapIndexName(index.name)}</div>
-                    <div className={`text-base font-bold ${index.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                        {index.value.toFixed(2)}
+      {/* --- SECTION 1: INDICES & SENTIMENT --- */}
+      <section className="relative">
+          <button 
+              onClick={onRefreshIndices} 
+              disabled={loadingStates.indices}
+              className="absolute right-0 top-0 p-1.5 text-gray-400 hover:text-blue-600 bg-white/50 rounded-full z-10"
+          >
+              <RefreshCw size={14} className={loadingStates.indices ? 'animate-spin' : ''} />
+          </button>
+          
+          {/* Indices Dashboard */}
+          {data.indices && data.indices.length > 0 && (
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {data.indices.map((index, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-lg shadow-sm text-center border border-gray-100">
+                        <div className="text-xs text-gray-500 mb-1 truncate">{mapIndexName(index.name)}</div>
+                        <div className={`text-base font-bold ${index.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                            {index.value.toFixed(2)}
+                        </div>
+                        <div className={`text-[10px] font-medium ${index.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                            {index.changePercent >= 0 ? '+' : ''}{index.changePercent}%
+                        </div>
                     </div>
-                    <div className={`text-[10px] font-medium ${index.changePercent >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                         {index.changePercent >= 0 ? '+' : ''}{index.changePercent}%
-                    </div>
+                ))}
+              </div>
+          )}
+
+          {/* Main Gauge */}
+          <div className="flex flex-col items-center justify-center py-6 relative">
+            <div className={`absolute inset-0 bg-gradient-to-br ${getGradient(data.sentimentScore)} opacity-10 rounded-3xl blur-3xl transform scale-90`}></div>
+            
+            <div className="relative z-10 text-center">
+                <div className={`text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r ${getGradient(data.sentimentScore)}`}>
+                    {data.sentimentScore.toFixed(1)}
                 </div>
-            ))}
+                <div className="text-lg font-semibold text-gray-600 mt-1 flex items-center justify-center gap-2">
+                    {data.sentimentScore > 5 ? <Flame className="text-red-500" /> : <Snowflake className="text-blue-500" />}
+                    {getText(data.sentimentScore)}
+                </div>
+            </div>
           </div>
-      )}
+      </section>
 
-      {/* Main Gauge */}
-      <div className="flex flex-col items-center justify-center py-6 relative">
-         <div className={`absolute inset-0 bg-gradient-to-br ${getGradient(data.sentimentScore)} opacity-10 rounded-3xl blur-3xl transform scale-90`}></div>
-         
-         <div className="relative z-10 text-center">
-            <div className={`text-7xl font-black bg-clip-text text-transparent bg-gradient-to-r ${getGradient(data.sentimentScore)}`}>
-                {data.sentimentScore.toFixed(1)}
-            </div>
-            <div className="text-lg font-semibold text-gray-600 mt-1 flex items-center justify-center gap-2">
-                {data.sentimentScore > 5 ? <Flame className="text-red-500" /> : <Snowflake className="text-blue-500" />}
-                {getText(data.sentimentScore)}
-            </div>
-         </div>
-      </div>
-
-      {/* Smart Stock Selection */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <Sparkles className="text-indigo-500" size={20}/>
-            {t.smart_selection}
-        </h3>
+      {/* --- SECTION 2: SMART SELECTION --- */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Sparkles className="text-indigo-500" size={20}/>
+                {t.smart_selection}
+            </h3>
+            <button 
+                onClick={onRefreshOpportunities} 
+                disabled={loadingStates.opportunities}
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-indigo-600"
+            >
+                <RefreshCw size={14} className={loadingStates.opportunities ? 'animate-spin' : ''} />
+                {t.refresh}
+            </button>
+        </div>
 
         <div className="space-y-4">
-           {data.marketOpportunities && data.marketOpportunities.length > 0 ? (
+           {loadingStates.opportunities ? (
+               <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                   <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                   <p className="text-sm">AI 正在挖掘今日潜在机会...</p>
+               </div>
+           ) : data.marketOpportunities && data.marketOpportunities.length > 0 ? (
                data.marketOpportunities.map((opp, idx) => (
                    <div key={idx} className="bg-white rounded-xl shadow-sm border border-indigo-50 overflow-hidden">
                        <div className="p-4 bg-gradient-to-r from-indigo-50 to-white">
@@ -189,21 +220,38 @@ const MarketView: React.FC<MarketViewProps> = ({
                    </div>
                ))
            ) : (
-               <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                   <p className="text-sm">AI 正在挖掘今日潜在机会...</p>
+               <div className="text-center text-gray-400 py-6 bg-gray-50 rounded-xl">
+                   <p className="text-sm">暂无策略，点击刷新</p>
                </div>
            )}
         </div>
-      </div>
+      </section>
 
-      {/* NEW SECTION: Market Capital Overview */}
-      {data.capitalData && (
-        <div className="pt-2">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+      {/* --- SECTION 3: CAPITAL OVERVIEW --- */}
+      <section className="pt-2">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <BarChart4 className="text-emerald-600" size={20}/>
                 {t.market_capital}
             </h3>
+            <button 
+                onClick={onRefreshCapital} 
+                disabled={loadingStates.capital}
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-emerald-600"
+            >
+                <RefreshCw size={14} className={loadingStates.capital ? 'animate-spin' : ''} />
+                {t.refresh}
+            </button>
+          </div>
 
+        {loadingStates.capital ? (
+             <div className="h-48 flex items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <div className="flex flex-col items-center">
+                    <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full mb-2"></div>
+                    <p className="text-sm text-gray-400">正在分析资金流向...</p>
+                </div>
+            </div>
+        ) : data.capitalData ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* 1. Metric Cards Grid */}
                 <div className="grid grid-cols-2 gap-px bg-gray-100 border-b border-gray-100">
@@ -341,18 +389,37 @@ const MarketView: React.FC<MarketViewProps> = ({
                     </div>
                 </div>
             </div>
-        </div>
-      )}
+        ) : (
+            <div className="text-center text-gray-400 py-6 bg-gray-50 rounded-xl">
+               <p className="text-sm">暂无数据，点击刷新</p>
+           </div>
+        )}
+      </section>
 
-      {/* Limit Up List (Moved to bottom) */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <TrendingUp className="text-red-500" size={20}/>
-            {t.limit_up_analysis}
-        </h3>
+      {/* --- SECTION 4: LIMIT UP ANALYSIS --- */}
+      <section>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <TrendingUp className="text-red-500" size={20}/>
+                {t.limit_up_analysis}
+            </h3>
+            <button 
+                onClick={onRefreshLimitUp} 
+                disabled={loadingStates.limitUp}
+                className="text-xs flex items-center gap-1 text-gray-400 hover:text-red-500"
+            >
+                <RefreshCw size={14} className={loadingStates.limitUp ? 'animate-spin' : ''} />
+                {t.refresh}
+            </button>
+        </div>
         
         <div className="space-y-3">
-            {data.limitUpStocks.length > 0 ? (
+            {loadingStates.limitUp ? (
+                <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-xl">
+                    <div className="animate-spin h-5 w-5 border-2 border-red-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+                    <p className="text-sm">AI 正在复盘涨停原因...</p>
+                </div>
+            ) : data.limitUpStocks.length > 0 ? (
                 data.limitUpStocks.map((stock, idx) => {
                     const isExpanded = expandedStockCode === stock.code;
                     return (
@@ -448,12 +515,13 @@ const MarketView: React.FC<MarketViewProps> = ({
                     );
                 })
             ) : (
-                <div className="text-center text-gray-400 py-10 bg-gray-50 rounded-xl">
-                    {t.no_market_data}
+                <div className="text-center text-gray-400 py-6 bg-gray-50 rounded-xl">
+                    <p className="text-sm">暂无数据</p>
                 </div>
             )}
         </div>
-      </div>
+      </section>
+
     </div>
   );
 };

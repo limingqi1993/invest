@@ -9,7 +9,7 @@ import TopicTrackingView from './components/TopicTrackingView';
 import AddStockInput from './components/AddStockInput';
 import UserProfileModal from './components/UserProfileModal';
 import { StockData, MarketData, TopicData, Note, Tab, Language, TopicViewMode, FavoriteItem, StockCategory, ReflectionSummary, PortfolioItem, AssetHistoryItem, TradeType } from './types';
-import { fetchStockAnalysis, fetchMarketSentiment, fetchTopicAnalysis, analyzeTradeReflection, generateTradeSummary } from './services/geminiService';
+import { fetchStockAnalysis, fetchTopicAnalysis, analyzeTradeReflection, generateTradeSummary, fetchMarketIndices, fetchMarketOpportunities, fetchMarketLimitUps, fetchMarketCapital } from './services/geminiService';
 import { translations } from './utils/translations';
 import { User } from 'lucide-react';
 
@@ -34,11 +34,28 @@ const App: React.FC = () => {
   const [stocks, setStocks] = useState<StockData[]>(() => loadState('alpha_stocks', []));
   useEffect(() => localStorage.setItem('alpha_stocks', JSON.stringify(stocks)), [stocks]);
 
-  const [marketData, setMarketData] = useState<MarketData | null>(() => loadState('alpha_market', null));
-  // Market data is also cached, but updated on mount
+  // --- MARKET DATA STATE (SPLIT) ---
+  const [marketData, setMarketData] = useState<MarketData>(() => loadState('alpha_market_v2', {
+      sentimentScore: 5,
+      indices: [],
+      marketOpportunities: [],
+      limitUpStocks: [],
+      capitalData: undefined,
+      lastUpdated: 0
+  }));
+  // Persist updated market data
   useEffect(() => {
-     if(marketData) localStorage.setItem('alpha_market', JSON.stringify(marketData));
+     localStorage.setItem('alpha_market_v2', JSON.stringify(marketData));
   }, [marketData]);
+
+  const [loadingMarket, setLoadingMarket] = useState({
+      indices: false,
+      opportunities: false,
+      limitUp: false,
+      capital: false
+  });
+
+  // --- END MARKET DATA STATE ---
 
   const [topics, setTopics] = useState<TopicData[]>(() => loadState('alpha_topics', []));
   useEffect(() => localStorage.setItem('alpha_topics', JSON.stringify(topics)), [topics]);
@@ -77,7 +94,6 @@ const App: React.FC = () => {
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [isRefreshingAllTopics, setIsRefreshingAllTopics] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [loadingMarket, setLoadingMarket] = useState(false);
   const [refreshingStockId, setRefreshingStockId] = useState<string | null>(null);
   const [isRefreshingPortfolio, setIsRefreshingPortfolio] = useState(false);
 
@@ -99,9 +115,13 @@ const App: React.FC = () => {
 
   // Initial Load (Market Data) - Refresh on mount if data is old (> 4 hours) or missing
   useEffect(() => {
-    const shouldRefresh = !marketData || (Date.now() - marketData.lastUpdated > 1000 * 60 * 60 * 4);
+    const shouldRefresh = !marketData.lastUpdated || (Date.now() - marketData.lastUpdated > 1000 * 60 * 60 * 4);
     if (shouldRefresh) {
-        loadMarketData();
+        // Load all sections independently but simultaneously
+        loadMarketIndices();
+        loadMarketOpportunities();
+        loadMarketLimitUps();
+        loadMarketCapital();
     }
     
     // Also record daily asset history on mount
@@ -109,7 +129,6 @@ const App: React.FC = () => {
   }, []);
 
   // Sync Portfolio prices with Stock Watchlist prices if available
-  // This ensures that if a user refreshes a stock in the Watchlist, the Portfolio also updates automatically.
   useEffect(() => {
     if (stocks.length === 0 || portfolio.length === 0) return;
 
@@ -128,7 +147,7 @@ const App: React.FC = () => {
       });
       return hasChanges ? newPortfolio : prevPortfolio;
     });
-  }, [stocks]); // Intentionally not including portfolio to avoid cycles, only update when stocks change
+  }, [stocks]); 
 
   const recordDailyAssetHistory = () => {
       const today = new Date().toISOString().split('T')[0];
@@ -148,27 +167,36 @@ const App: React.FC = () => {
       });
   };
 
-  const loadMarketData = async () => {
-    setLoadingMarket(true);
-    
-    try {
-      const data = await fetchMarketSentiment(language);
-      setMarketData(data);
-    } catch (e) {
-      console.error("Market data fetch failed", e);
-      // Keep existing data if available, otherwise fallback
-      if (!marketData) {
-          setMarketData({
-              sentimentScore: 5,
-              limitUpStocks: [],
-              indices: [],
-              lastUpdated: Date.now()
-          });
-      }
-    } finally {
-      setLoadingMarket(false);
-    }
+  // --- MARKET DATA LOADERS (INDEPENDENT) ---
+  const loadMarketIndices = async () => {
+      setLoadingMarket(prev => ({ ...prev, indices: true }));
+      try {
+          const data = await fetchMarketIndices(language);
+          setMarketData(prev => ({ ...prev, ...data, lastUpdated: Date.now() }));
+      } catch (e) { console.error(e); } finally { setLoadingMarket(prev => ({ ...prev, indices: false })); }
   };
+  const loadMarketOpportunities = async () => {
+      setLoadingMarket(prev => ({ ...prev, opportunities: true }));
+      try {
+          const data = await fetchMarketOpportunities(language);
+          setMarketData(prev => ({ ...prev, ...data }));
+      } catch (e) { console.error(e); } finally { setLoadingMarket(prev => ({ ...prev, opportunities: false })); }
+  };
+  const loadMarketLimitUps = async () => {
+      setLoadingMarket(prev => ({ ...prev, limitUp: true }));
+      try {
+          const data = await fetchMarketLimitUps(language);
+          setMarketData(prev => ({ ...prev, ...data }));
+      } catch (e) { console.error(e); } finally { setLoadingMarket(prev => ({ ...prev, limitUp: false })); }
+  };
+  const loadMarketCapital = async () => {
+      setLoadingMarket(prev => ({ ...prev, capital: true }));
+      try {
+          const data = await fetchMarketCapital(language);
+          setMarketData(prev => ({ ...prev, ...data }));
+      } catch (e) { console.error(e); } finally { setLoadingMarket(prev => ({ ...prev, capital: false })); }
+  };
+  // --- END MARKET DATA LOADERS ---
 
   // Modified to be Non-Blocking
   const handleAddStock = (name: string, code?: string, switchToWatchlist = true) => {
@@ -426,19 +454,15 @@ const App: React.FC = () => {
               ));
           }
 
-          // 2. Add/Update Stock List (Watchlist) to ensure Industry Distribution chart works
-          // We update even if it exists to refresh industry data
+          // 2. Add/Update Stock List (Watchlist)
           setStocks(prev => {
               const index = prev.findIndex(s => s.name === item.name || s.name.includes(item.name));
               
               if (index >= 0) {
-                 // Update existing entry with fresh data (including industry)
                  const updated = [...prev];
                  updated[index] = { ...updated[index], ...data, lastUpdated: Date.now() };
                  return updated;
               }
-
-              // Add new entry
               const newStock: StockData = {
                   id: Date.now().toString(),
                   name: item.name,
@@ -447,20 +471,18 @@ const App: React.FC = () => {
                   lastUpdated: Date.now(),
                   isExpanded: false,
                   isLoading: false,
-                  category: 'holding' // Implicitly categorize as holding
+                  category: 'holding'
               };
               return [newStock, ...prev];
           });
       });
   };
   
-  // Refresh Portfolio Prices (Called from TradeView)
   const handleRefreshPortfolio = async () => {
       if (portfolio.length === 0) return;
       setIsRefreshingPortfolio(true);
 
       try {
-          // Fetch data for all items
           const promises = portfolio.map(async (item) => {
               try {
                   const data = await fetchStockAnalysis(item.name, language);
@@ -469,10 +491,8 @@ const App: React.FC = () => {
                   return { id: item.id, name: item.name, price: null, data: null };
               }
           });
-          
           const results = await Promise.all(promises);
           
-          // Update Portfolio state
           setPortfolio(prev => prev.map(item => {
               const res = results.find(r => r.id === item.id);
               if (res && res.price) {
@@ -481,7 +501,6 @@ const App: React.FC = () => {
               return item;
           }));
 
-          // Update Stocks state (if they match)
           setStocks(prev => prev.map(stock => {
               const res = results.find(r => r.name === stock.name);
               if (res && res.data) {
@@ -489,7 +508,6 @@ const App: React.FC = () => {
               }
               return stock;
           }));
-
       } catch (error) {
           console.error("Failed to refresh portfolio", error);
       } finally {
@@ -497,48 +515,29 @@ const App: React.FC = () => {
       }
   };
 
-  // Trade Handler (Buy/Sell)
   const handleTrade = (id: string, type: TradeType, quantity: number, price: number) => {
       setPortfolio(prev => prev.map(item => {
           if (item.id === id) {
               const transactionAmount = price * quantity;
-              
               if (type === 'buy') {
-                  // BUY: Cash decreases, Qty increases, Avg Cost updates
                   setCashBalance(c => c - transactionAmount);
-                  
                   const totalOldCost = item.costPrice * item.quantity;
                   const totalNewCost = transactionAmount;
                   const newQty = item.quantity + quantity;
                   const newAvgCost = (totalOldCost + totalNewCost) / newQty;
 
-                  return {
-                      ...item,
-                      quantity: newQty,
-                      costPrice: newAvgCost,
-                      // Update price to latest execution price
-                      currentPrice: price 
-                  };
-
+                  return { ...item, quantity: newQty, costPrice: newAvgCost, currentPrice: price };
               } else {
-                  // SELL: Cash increases, Qty decreases, Avg Cost stays same
                   setCashBalance(c => c + transactionAmount);
-                  
-                  return {
-                      ...item,
-                      quantity: Math.max(0, item.quantity - quantity),
-                      currentPrice: price
-                  };
+                  return { ...item, quantity: Math.max(0, item.quantity - quantity), currentPrice: price };
               }
           }
           return item;
-      }).filter(item => item.quantity > 0)); // Remove empty positions
+      }).filter(item => item.quantity > 0)); 
   };
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-      
-      {/* Profile Modal */}
       <UserProfileModal 
           isOpen={isProfileOpen} 
           onClose={() => setIsProfileOpen(false)} 
@@ -547,10 +546,8 @@ const App: React.FC = () => {
           t={t}
       />
 
-      {/* Main Content Area */}
       <main className="max-w-md mx-auto min-h-screen bg-gray-50 relative shadow-2xl">
         
-        {/* VIEW: Watchlist */}
         {activeTab === 'watchlist' && (
           <div className="p-4 pb-24">
             <header className="mb-6 pt-2 flex justify-between items-start">
@@ -566,7 +563,6 @@ const App: React.FC = () => {
               </button>
             </header>
             
-            {/* isLoading is always false for the input to ensure non-blocking */}
             <AddStockInput onAdd={(name, code) => handleAddStock(name, code, true)} isLoading={false} t={t} />
             
             <div className="space-y-4">
@@ -576,7 +572,6 @@ const App: React.FC = () => {
                        <p className="text-sm">{t.no_stocks_sub}</p>
                    </div>
                )}
-               
                {sortedStocks.map(stock => (
                  <StockCard 
                     key={stock.id} 
@@ -595,24 +590,20 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW: Market */}
-        {activeTab === 'market' && marketData && (
+        {/* UPDATED MARKET VIEW: Passing split handlers */}
+        {activeTab === 'market' && (
             <MarketView 
                 data={marketData} 
-                isLoading={loadingMarket} 
-                onRefresh={loadMarketData} 
+                loadingStates={loadingMarket} 
+                onRefreshIndices={loadMarketIndices}
+                onRefreshOpportunities={loadMarketOpportunities}
+                onRefreshLimitUp={loadMarketLimitUps}
+                onRefreshCapital={loadMarketCapital}
                 onAddStock={(name) => handleAddStock(name, undefined, true)}
                 t={t}
             />
         )}
-        {activeTab === 'market' && !marketData && (
-             <div className="flex items-center justify-center h-screen flex-col gap-3">
-                 <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-                 <p className="text-sm text-gray-400">{t.analyzing_market}</p>
-             </div>
-        )}
 
-        {/* VIEW: Tracking */}
         {activeTab === 'tracking' && (
              <TopicTrackingView 
                 topics={topics}
@@ -622,8 +613,8 @@ const App: React.FC = () => {
                 onRefreshAll={handleRefreshAllTopics}
                 onToggleFavorite={handleToggleFavorite}
                 onRemoveFavorite={handleRemoveFavorite}
-                onAddStock={(name) => handleAddStock(name, undefined, false)} // Add without switching tab
-                savedStockNames={stocks.map(s => s.name)} // Pass existing stocks for UI feedback
+                onAddStock={(name) => handleAddStock(name, undefined, false)} 
+                savedStockNames={stocks.map(s => s.name)} 
                 isAdding={isAddingTopic}
                 isRefreshingAll={isRefreshingAllTopics}
                 viewMode={topicViewMode}
@@ -632,7 +623,6 @@ const App: React.FC = () => {
              />
         )}
 
-        {/* VIEW: Reflections */}
         {activeTab === 'reflection' && (
             <ReflectionView 
                 notes={notes}
@@ -649,7 +639,6 @@ const App: React.FC = () => {
             />
         )}
 
-        {/* VIEW: Trade (Portfolio Page) */}
         {activeTab === 'trade' && (
             <TradeView 
                 portfolio={portfolio}
@@ -665,7 +654,6 @@ const App: React.FC = () => {
             />
         )}
       
-        {/* Bottom Navigation */}
         {!(activeTab === 'tracking' && topicViewMode !== 'list') && (
             <Navigation activeTab={activeTab} onSwitch={setActiveTab} t={t} />
         )}

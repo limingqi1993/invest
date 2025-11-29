@@ -1,6 +1,15 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { STOCK_ANALYSIS_PROMPT, MARKET_SENTIMENT_PROMPT, TOPIC_ANALYSIS_PROMPT, REFLECTION_ANALYSIS_PROMPT, REFLECTION_SUMMARY_PROMPT } from "../constants";
+import { 
+  STOCK_ANALYSIS_PROMPT, 
+  MARKET_INDICES_PROMPT,
+  MARKET_OPPORTUNITY_PROMPT,
+  MARKET_CAPITAL_PROMPT,
+  MARKET_LIMIT_UP_PROMPT,
+  TOPIC_ANALYSIS_PROMPT, 
+  REFLECTION_ANALYSIS_PROMPT, 
+  REFLECTION_SUMMARY_PROMPT 
+} from "../constants";
 import { StockData, MarketData, TopicData, Language, AIAnalysis, ReflectionSummary } from "../types";
 
 const apiKey = process.env.API_KEY || '';
@@ -57,47 +66,89 @@ export const fetchStockAnalysis = async (stockName: string, lang: Language): Pro
   }
 };
 
-export const fetchMarketSentiment = async (lang: Language): Promise<MarketData> => {
-  try {
-    const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
-    const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+// --- NEW INDEPENDENT MARKET FUNCTIONS ---
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `${MARKET_SENTIMENT_PROMPT}\nTODAY IS: ${today}\n${langInstruction}`,
-      config: {
-        tools: [{ googleSearch: {} }] 
-      }
-    }, REQUEST_OPTIONS);
+export const fetchMarketIndices = async (lang: Language): Promise<Pick<MarketData, 'indices' | 'sentimentScore'>> => {
+    try {
+        const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
+        const today = new Date().toLocaleDateString();
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `${MARKET_INDICES_PROMPT}\nTODAY: ${today}\n${langInstruction}`,
+            config: { tools: [{ googleSearch: {} }] }
+        }, REQUEST_OPTIONS);
 
-    const text = response.text;
-    const data = parseJSON(text);
-    
-    // Validation: Ensure structure exists
-    if (!data || !data.indices) {
-        throw new Error("Invalid market data structure");
+        const data = parseJSON(response.text);
+        if (!data || !data.indices) throw new Error("Invalid Indices Data");
+        return data;
+    } catch (error) {
+        console.error("Fetch Indices Error", error);
+        return { indices: [], sentimentScore: 5 };
     }
-
-    return {
-      ...data,
-      lastUpdated: Date.now()
-    };
-  } catch (error) {
-    console.error("Gemini Market Sentiment Error:", error);
-    // Return a fallback to prevent app crash and infinite loading loops
-    return {
-      sentimentScore: 5.0,
-      limitUpStocks: [],
-      marketOpportunities: [],
-      indices: [
-        { name: "Shanghai Composite", value: 0, change: 0, changePercent: 0 },
-        { name: "ChiNext", value: 0, change: 0, changePercent: 0 },
-        { name: "STAR 50", value: 0, change: 0, changePercent: 0 }
-      ],
-      lastUpdated: Date.now()
-    };
-  }
 };
+
+export const fetchMarketOpportunities = async (lang: Language): Promise<Pick<MarketData, 'marketOpportunities'>> => {
+    try {
+        const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
+        const today = new Date().toLocaleDateString();
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `${MARKET_OPPORTUNITY_PROMPT}\nTODAY: ${today}\n${langInstruction}`,
+            config: { tools: [{ googleSearch: {} }] }
+        }, REQUEST_OPTIONS);
+
+        const data = parseJSON(response.text);
+        if (!data || !data.marketOpportunities) throw new Error("Invalid Opportunity Data");
+        return data;
+    } catch (error) {
+        console.error("Fetch Opportunities Error", error);
+        return { marketOpportunities: [] };
+    }
+};
+
+export const fetchMarketLimitUps = async (lang: Language): Promise<Pick<MarketData, 'limitUpStocks'>> => {
+    try {
+        const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
+        const today = new Date().toLocaleDateString();
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `${MARKET_LIMIT_UP_PROMPT}\nTODAY: ${today}\n${langInstruction}`,
+            config: { tools: [{ googleSearch: {} }] }
+        }, REQUEST_OPTIONS);
+
+        const data = parseJSON(response.text);
+        if (!data || !data.limitUpStocks) throw new Error("Invalid LimitUp Data");
+        return data;
+    } catch (error) {
+        console.error("Fetch LimitUp Error", error);
+        return { limitUpStocks: [] };
+    }
+};
+
+export const fetchMarketCapital = async (lang: Language): Promise<Pick<MarketData, 'capitalData'>> => {
+    try {
+        const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
+        const today = new Date().toLocaleDateString();
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `${MARKET_CAPITAL_PROMPT}\nTODAY: ${today}\n${langInstruction}`,
+            config: { tools: [{ googleSearch: {} }] }
+        }, REQUEST_OPTIONS);
+
+        const data = parseJSON(response.text);
+        if (!data || !data.capitalData) throw new Error("Invalid Capital Data");
+        return data;
+    } catch (error) {
+        console.error("Fetch Capital Error", error);
+        return { capitalData: undefined };
+    }
+};
+
+// --- END NEW FUNCTIONS ---
 
 export const fetchTopicAnalysis = async (keyword: string, lang: Language): Promise<Omit<TopicData, 'id' | 'keyword' | 'lastUpdated'>> => {
   try {
