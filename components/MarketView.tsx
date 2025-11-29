@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { MarketData } from '../types';
-import { TrendingUp, Flame, Snowflake, Clock, PlusCircle, ChevronDown, ChevronUp, Zap, Timer, Target } from 'lucide-react';
+import { TrendingUp, Flame, Snowflake, Clock, PlusCircle, ChevronDown, ChevronUp, Zap, Timer, Target, Sparkles, TrendingDown, Briefcase, Award } from 'lucide-react';
 import { Translation } from '../utils/translations';
 
 interface MarketViewProps {
@@ -64,6 +65,27 @@ const MarketView: React.FC<MarketViewProps> = ({
       if (type === 'Medium-term') return t.logic_medium;
       if (type === 'Long-term') return t.logic_long;
       return type;
+  };
+
+  // Opportunity Helpers
+  const getOpportunityIcon = (type: string) => {
+      switch(type) {
+          case 'Policy': return <Award className="text-red-500" size={18} />;
+          case 'Earnings': return <TrendingUp className="text-orange-500" size={18} />;
+          case 'Capital': return <Briefcase className="text-blue-500" size={18} />;
+          case 'Guru': return <Sparkles className="text-purple-500" size={18} />;
+          default: return <Target className="text-gray-500" size={18} />;
+      }
+  };
+
+  const getOpportunityLabel = (type: string) => {
+      switch(type) {
+          case 'Policy': return t.selection_policy;
+          case 'Earnings': return t.selection_earnings;
+          case 'Capital': return t.selection_capital;
+          case 'Guru': return t.selection_guru;
+          default: return type;
+      }
   };
 
   return (
@@ -221,6 +243,64 @@ const MarketView: React.FC<MarketViewProps> = ({
                     {t.no_market_data}
                 </div>
             )}
+        </div>
+      </div>
+
+      {/* NEW SECTION: Smart Stock Selection */}
+      <div className="pt-4">
+        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Sparkles className="text-indigo-500" size={20}/>
+            {t.smart_selection}
+        </h3>
+
+        <div className="space-y-4">
+           {data.marketOpportunities && data.marketOpportunities.length > 0 ? (
+               data.marketOpportunities.map((opp, idx) => (
+                   <div key={idx} className="bg-white rounded-xl shadow-sm border border-indigo-50 overflow-hidden">
+                       <div className="p-4 bg-gradient-to-r from-indigo-50 to-white">
+                           <div className="flex items-center justify-between mb-2">
+                               <div className="flex items-center gap-2">
+                                   <div className="bg-white p-1.5 rounded-lg shadow-sm">
+                                       {getOpportunityIcon(opp.type)}
+                                   </div>
+                                   <div>
+                                       <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">{getOpportunityLabel(opp.type)}</div>
+                                       <h4 className="font-bold text-gray-900">{opp.title}</h4>
+                                   </div>
+                               </div>
+                           </div>
+                           <p className="text-xs text-gray-600 leading-relaxed mb-3">
+                               {opp.description}
+                           </p>
+
+                           {/* Stocks List */}
+                           <div className="space-y-2">
+                               {opp.stocks.map((stock, sIdx) => (
+                                   <div key={sIdx} className="bg-white p-3 rounded-lg border border-gray-100 flex justify-between items-center shadow-sm">
+                                       <div>
+                                           <div className="flex items-center gap-2 mb-1">
+                                               <span className="font-bold text-gray-800">{stock.name}</span>
+                                               <span className="text-[10px] bg-gray-100 text-gray-500 px-1 rounded">{stock.code}</span>
+                                           </div>
+                                           <div className="text-xs text-gray-500 line-clamp-1">{stock.reason}</div>
+                                       </div>
+                                       <button 
+                                            onClick={() => onAddStock(stock.name)}
+                                            className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-full transition-colors"
+                                       >
+                                           <PlusCircle size={20} />
+                                       </button>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
+                   </div>
+               ))
+           ) : (
+               <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                   <p className="text-sm">AI 正在挖掘今日潜在机会...</p>
+               </div>
+           )}
         </div>
       </div>
     </div>

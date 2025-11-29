@@ -6,6 +6,14 @@ export interface TrendData {
 
 export type StockCategory = 'holding' | 'strong' | 'medium' | 'normal';
 
+export interface StockFinancials {
+  netAssets: number; // in Billions
+  lastYearNetProfit: number; // in Billions
+  marketCap: number; // in Billions
+  currency: string;
+  fiscalYear: string; // e.g. "2023"
+}
+
 export interface StockData {
   id: string;
   name: string;
@@ -29,6 +37,7 @@ export interface StockData {
     overseas: number;
   };
   freeCashFlowTrend: TrendData[];
+  financials?: StockFinancials; // New: Financial data for valuation
   lastUpdated: number;
   isExpanded?: boolean;
   isLoading?: boolean;
@@ -62,6 +71,19 @@ export interface LimitUpStock {
   logicType?: 'Short-term' | 'Medium-term' | 'Long-term';
 }
 
+export interface RecommendedStock {
+  name: string;
+  code: string;
+  reason: string;
+}
+
+export interface MarketOpportunity {
+  type: 'Policy' | 'Earnings' | 'Capital' | 'Guru' | 'Other';
+  title: string;
+  description: string;
+  stocks: RecommendedStock[];
+}
+
 export interface MarketIndex {
   name: string;
   value: number;
@@ -72,6 +94,7 @@ export interface MarketIndex {
 export interface MarketData {
   sentimentScore: number;
   limitUpStocks: LimitUpStock[];
+  marketOpportunities: MarketOpportunity[]; // New: AI selection logic
   indices: MarketIndex[];
   lastUpdated: number;
 }

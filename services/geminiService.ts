@@ -33,9 +33,12 @@ export const fetchStockAnalysis = async (stockName: string, lang: Language): Pro
   try {
     const langInstruction = lang === 'en' ? "Please generate all text content in English." : "Please generate all text content in Chinese (Simplified).";
     
+    // Inject the stock name into the prompt to ensure specific searches
+    const prompt = STOCK_ANALYSIS_PROMPT.replace(/\{STOCK_NAME\}/g, stockName);
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `${STOCK_ANALYSIS_PROMPT}\n${langInstruction}\nTarget Stock: ${stockName}`,
+      contents: `${prompt}\n${langInstruction}`,
       config: {
         tools: [{ googleSearch: {} }] 
       }
@@ -82,6 +85,7 @@ export const fetchMarketSentiment = async (lang: Language): Promise<MarketData> 
     return {
       sentimentScore: 5.0,
       limitUpStocks: [],
+      marketOpportunities: [],
       indices: [
         { name: "Shanghai Composite", value: 0, change: 0, changePercent: 0 },
         { name: "ChiNext", value: 0, change: 0, changePercent: 0 },

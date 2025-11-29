@@ -1,33 +1,58 @@
 
 export const STOCK_ANALYSIS_PROMPT = `
 You are a professional financial analyst. 
-Use Google Search to find the REAL-TIME / LATEST available data for the stock.
-Analyze the stock provided by the user. 
-You must strictly return valid JSON data. Do not include markdown formatting like \`\`\`json.
-Do NOT include any introductory or concluding text. ONLY JSON.
+Target Stock: "{STOCK_NAME}"
 
-The JSON structure must be:
+**EXECUTION STEPS (INTERNAL):**
+1. **MANDATORY SEARCH**: You MUST perform Google Searches for these EXACT terms:
+   - "{STOCK_NAME} latest total equity attributable to shareholders"
+   - "{STOCK_NAME} net income attributable to shareholders 2024" (If 2024 full year is not out, search for 2023)
+   - "{STOCK_NAME} market cap today"
+   
+2. **EXTRACT REAL DATA**: Look at the search snippets. Do NOT use your internal training memory. Use the numbers from the search results.
+
+3. **UNIT CONVERSION (CRITICAL)**:
+   - **ALL OUTPUT MUST BE IN BILLIONS (亿).**
+   - If a number is in **Trillions (T/万亿)** -> **Multiply by 1000**. (e.g. 3.5T = 3500)
+   - If a number is in **Millions (M/百万)** -> **Divide by 1000**. (e.g. 500M = 0.5)
+   - If a number is in **Billions (B/十亿)** -> **Keep as is**. (e.g. 20.5B = 20.5)
+   
+   *Example Correction*:
+   - If search shows Market Cap = 3.86 Trillion USD -> You must output **3860**.
+   - If search shows Net Income = 100.1 Billion USD -> You must output **100.1**.
+
+4. **RETURN JSON**:
+   Return strictly valid JSON. No markdown.
+
+JSON Structure:
 {
   "market": "CN" or "US" or "HK",
-  "price": number (Current stock price, strictly number, e.g., 125.50),
-  "changePercent": number (Current percentage change, e.g., 1.5 or -2.3),
-  "companyNews": "Summary of very recent company dynamics and news (max 50 words). Include date of news if possible.",
+  "price": number (Current stock price),
+  "changePercent": number,
+  "companyNews": "Latest news summary (max 50 words)",
   "mainBusiness": "Core business summary",
-  "newBusinessProgress": "Progress on new business explorations",
+  "newBusinessProgress": "New business progress",
   "industry": {
     "name": "Industry Name",
-    "sentimentScore": number (0-10, where 10 is very hot/bullish, 0 is ice/bearish based on current market trends)
+    "sentimentScore": number (0-10)
   },
-  "managementVoice": "Recent key quotes or stance from management",
-  "latestReport": "Key highlights from the latest quarterly report",
-  "grossMarginTrend": [{"year": "2020", "value": 0.45}, ... last 5 years],
-  "marketShareTrend": [{"year": "2020", "value": 15}, ... last 5 years estimated percentage],
-  "coreBarrier": "The company's core competitive moat",
+  "managementVoice": "Management quotes",
+  "latestReport": "Latest report highlights",
+  "grossMarginTrend": [{"year": "2020", "value": 0.45}, ...],
+  "marketShareTrend": [{"year": "2020", "value": 15}, ...],
+  "coreBarrier": "Core moat",
   "businessRatio": {
-    "domestic": number (percentage 0-100),
-    "overseas": number (percentage 0-100)
+    "domestic": number,
+    "overseas": number
   },
-  "freeCashFlowTrend": [{"year": "2020", "value": 100}, ... last 5 years relative unit or normalized]
+  "freeCashFlowTrend": [{"year": "2020", "value": 100}, ...],
+  "financials": {
+    "netAssets": number (Total Equity in BILLIONS),
+    "lastYearNetProfit": number (Net Profit for last full year in BILLIONS),
+    "marketCap": number (Real-time Market Cap in BILLIONS),
+    "currency": "CNY" or "USD" or "HKD",
+    "fiscalYear": "String (e.g. '2023' or '2024')"
+  }
 }
 `;
 
@@ -74,6 +99,18 @@ The JSON structure must be:
       "logicType": "Short-term" or "Medium-term" or "Long-term"
     },
     ... (provide 3-5 representative examples)
+  ],
+  "marketOpportunities": [
+    {
+      "type": "Policy" or "Earnings" or "Capital" or "Guru" or "Other",
+      "title": "Strategy Name (e.g. 'Solid State Battery Policy', 'Northbound Inflow')",
+      "description": "Logic for this selection (max 30 words). Focus on: Policy guidance, Earnings beats, Foreign/Big Capital inflows, or Guru (Buffett/Hillhouse) moves.",
+      "stocks": [
+         { "name": "StockA", "code": "CodeA", "reason": "Specific reason" },
+         { "name": "StockB", "code": "CodeB", "reason": "Specific reason" }
+      ]
+    },
+    ... (provide 3 distinct strategies currently active)
   ]
 }
 `;

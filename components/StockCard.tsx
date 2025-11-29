@@ -1,6 +1,7 @@
+
 import React, { useState, useRef } from 'react';
 import { StockData, MarketData, StockCategory } from '../types';
-import { RefreshCw, TrendingUp, TrendingDown, Globe, Shield, Activity, Calculator, Trash2, Check, MoreHorizontal, X, Tag } from 'lucide-react';
+import { RefreshCw, TrendingUp, TrendingDown, Globe, Shield, Activity, Calculator, Trash2, Check, MoreHorizontal, X, Tag, DollarSign, Scale } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Translation } from '../utils/translations';
 
@@ -125,6 +126,44 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
 
   const categoryLabel = getCategoryLabel();
 
+  // Intrinsic Value Calculation
+  // Formula: Net Assets + (Last Year Net Profit * 20)
+  const calculateIntrinsicValue = () => {
+      if (!data.financials || !data.financials.netAssets || !data.financials.lastYearNetProfit) return null;
+      
+      const na = data.financials.netAssets;
+      const np = data.financials.lastYearNetProfit;
+      const iv = na + (np * 20);
+      const mktCap = data.financials.marketCap;
+      const fiscalYear = data.financials.fiscalYear || 'Last Year';
+      
+      let valuationStatus = t.fair_value;
+      let statusColor = 'text-gray-500';
+      
+      if (mktCap) {
+          if (mktCap < iv * 0.8) {
+              valuationStatus = t.undervalued;
+              statusColor = 'text-green-500';
+          } else if (mktCap > iv * 1.2) {
+              valuationStatus = t.overvalued;
+              statusColor = 'text-red-500';
+          }
+      }
+
+      return {
+          value: iv.toFixed(2),
+          currency: data.financials.currency,
+          netAssets: na.toFixed(2),
+          netProfit: np.toFixed(2),
+          status: valuationStatus,
+          statusColor,
+          marketCap: mktCap ? mktCap.toFixed(2) : 'N/A',
+          fiscalYear
+      };
+  };
+
+  const valuation = calculateIntrinsicValue();
+
   return (
     <>
         {/* Context Menu Modal (Triggered by Long Press) */}
@@ -243,6 +282,38 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
                         {t.data_updated_at}: {new Date(data.lastUpdated).toLocaleString()}
                     </div>
 
+                    {/* Valuation / Intrinsic Value Section (NEW) */}
+                    {valuation && (
+                        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-100 mb-4 shadow-sm relative overflow-hidden">
+                             <div className="absolute top-0 right-0 p-2 opacity-10">
+                                 <Scale size={48} />
+                             </div>
+                             
+                             <div className="flex items-center gap-2 mb-2 relative z-10">
+                                 <div className="bg-white p-1 rounded-md text-emerald-600 shadow-sm"><Scale size={16}/></div>
+                                 <h4 className="text-sm font-bold text-gray-800">{t.intrinsic_value}</h4>
+                                 <span className="text-[10px] bg-white/50 px-1.5 py-0.5 rounded text-gray-500">{t.intrinsic_formula}</span>
+                             </div>
+
+                             <div className="flex justify-between items-end relative z-10">
+                                 <div>
+                                     <div className="text-3xl font-bold text-gray-800">
+                                         {valuation.value} <span className="text-xs font-normal text-gray-500">{t.billion_unit} {valuation.currency}</span>
+                                     </div>
+                                     <div className="text-[10px] text-gray-500 mt-1 space-x-2">
+                                         <span>{t.net_assets}: {valuation.netAssets}</span>
+                                         <span>|</span>
+                                         <span>{t.net_profit} ({valuation.fiscalYear}): {valuation.netProfit}</span>
+                                     </div>
+                                 </div>
+                                 <div className="text-right">
+                                     <div className={`text-lg font-bold ${valuation.statusColor}`}>{valuation.status}</div>
+                                     <div className="text-[10px] text-gray-400">{t.market_cap}: {valuation.marketCap}</div>
+                                 </div>
+                             </div>
+                        </div>
+                    )}
+
                     {/* Key Information Grid */}
                     <div className="grid grid-cols-1 gap-4 mb-4">
                         <div className="bg-white p-3 rounded-lg shadow-sm">
@@ -297,7 +368,7 @@ const StockCard: React.FC<StockCardProps> = ({ data, marketData, onRefresh, onTo
                                         <defs>
                                             <linearGradient id="colorMs" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
-                                                <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                                                <stop offset="95%" stopColor="#82ca9d" stopOpacity={0.8}/>
                                             </linearGradient>
                                         </defs>
                                         <XAxis dataKey="year" fontSize={10} tickLine={false} axisLine={false} />

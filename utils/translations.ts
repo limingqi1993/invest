@@ -113,6 +113,23 @@ export const translations = {
     industry_sentiment: "情绪",
     data_updated_at: "数据更新于",
     
+    // Valuation & New Market Features
+    smart_selection: "AI 智能选股策略",
+    selection_policy: "政策/利好",
+    selection_earnings: "业绩/增长",
+    selection_capital: "资金/机构",
+    selection_guru: "名家/牛散",
+    intrinsic_value: "内在价值测算",
+    intrinsic_formula: "公式：净资产 + 20 × 去年净利润",
+    net_assets: "净资产",
+    net_profit: "去年净利",
+    est_value: "估值",
+    market_cap: "当前市值",
+    undervalued: "低估",
+    overvalued: "高估",
+    fair_value: "合理",
+    billion_unit: "亿",
+    
     // Simulation
     ai_advice: "AI 仓位建议",
     market_score: "大盘评分",
@@ -284,6 +301,23 @@ export const translations = {
     overseas: "Global",
     industry_sentiment: "Sent.",
     data_updated_at: "Data updated at",
+    
+    // Valuation & New Market Features
+    smart_selection: "AI Smart Selection",
+    selection_policy: "Policy/News",
+    selection_earnings: "Earnings",
+    selection_capital: "Capital Flow",
+    selection_guru: "Guru/Inst.",
+    intrinsic_value: "Intrinsic Value Est.",
+    intrinsic_formula: "Formula: Net Assets + 20 * Last Net Profit",
+    net_assets: "Net Assets",
+    net_profit: "Last Net Profit",
+    est_value: "Est. Value",
+    market_cap: "Market Cap",
+    undervalued: "Undervalued",
+    overvalued: "Overvalued",
+    fair_value: "Fair",
+    billion_unit: "B",
     
     // Simulation
     ai_advice: "AI Position Sizing",
